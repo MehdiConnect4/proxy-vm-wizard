@@ -18,9 +18,9 @@ impl TemplatesView {
                 // First, discover existing qcow2 files in the images directory
                 app.templates_view.discovered_qcow2_files =
                     Self::discover_qcow2_files(&app.global_config.libvirt.images_dir);
-                // Get disk-to-VM mapping to show which VMs use which images
-                app.templates_view.disk_to_vm_map =
-                    app.libvirt.get_disk_to_vm_map().unwrap_or_default();
+                // Don't fetch disk-to-VM mapping here - it's slow and blocks UI
+                // We'll fetch it lazily only when showing the selection dialog
+                app.templates_view.disk_to_vm_map.clear();
                 app.templates_view.show_selection_dialog = true;
                 app.templates_view.selected_existing_file = None;
                 app.templates_view.edit_template_id = None;
@@ -496,8 +496,8 @@ impl TemplatesView {
                             // Discover existing qcow2 files for edit mode too
                             app.templates_view.discovered_qcow2_files =
                                 Self::discover_qcow2_files(&app.global_config.libvirt.images_dir);
-                            app.templates_view.disk_to_vm_map =
-                                app.libvirt.get_disk_to_vm_map().unwrap_or_default();
+                            // Don't fetch disk-to-VM mapping here - it's slow and blocks UI
+                            app.templates_view.disk_to_vm_map.clear();
                             app.templates_view.show_selection_dialog = true;
                             app.templates_view.selected_existing_file = Some(template.path.clone());
                             app.templates_view.edit_template_id = Some(template.id.clone());
