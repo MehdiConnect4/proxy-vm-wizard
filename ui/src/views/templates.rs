@@ -15,10 +15,17 @@ impl TemplatesView {
 
         ui.horizontal(|ui| {
             if ui.button("➕ Add Template").clicked() {
-                // First, discover existing qcow2 files in the images directory
+                // Discover existing qcow2 files in the images directory
                 app.templates_view.discovered_qcow2_files =
                     Self::discover_qcow2_files(&app.global_config.libvirt.images_dir);
-                // Fetch disk-to-VM mapping ONCE when opening dialog (not every frame!)
+                // Cache registered paths to avoid rebuilding every frame
+                app.templates_view.registered_paths_cache = app
+                    .template_registry
+                    .list()
+                    .iter()
+                    .map(|t| t.path.clone())
+                    .collect();
+                // Fetch disk-to-VM mapping ONCE when opening dialog
                 app.templates_view.disk_to_vm_map =
                     app.libvirt.get_disk_to_vm_map().unwrap_or_default();
                 app.templates_view.show_selection_dialog = true;
@@ -87,6 +94,42 @@ impl TemplatesView {
             }
         }
 
+        // If no files found, try using 'ls' command (for permission-restricted directories)
+        if files.is_empty() {
+            if let Ok(output) = std::process::Command::new("ls")
+                .arg("-1")
+                .arg(images_dir)
+                .output()
+            {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    for line in stdout.lines() {
+                        if line.to_lowercase().ends_with(".qcow2") {
+                            files.push(images_dir.join(line));
+                        }
+                    }
+                }
+            }
+        }
+
+        // If still no files, try with pkexec (will prompt for password)
+        if files.is_empty() {
+            if let Ok(output) = std::process::Command::new("pkexec")
+                .args(["ls", "-1"])
+                .arg(images_dir)
+                .output()
+            {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    for line in stdout.lines() {
+                        if line.to_lowercase().ends_with(".qcow2") {
+                            files.push(images_dir.join(line));
+                        }
+                    }
+                }
+            }
+        }
+
         // Sort by filename
         files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
 
@@ -100,14 +143,6 @@ impl TemplatesView {
         } else {
             "Add Template"
         };
-
-        // Cache these outside the window - don't rebuild every frame!
-        let registered_paths: Vec<_> = app
-            .template_registry
-            .list()
-            .iter()
-            .map(|t| t.path.clone())
-            .collect();
 
         egui::Window::new(dialog_title)
             .collapsible(false)
@@ -157,7 +192,8 @@ impl TemplatesView {
                                         .cloned()
                                         .unwrap_or_default();
 
-                                    let is_registered = registered_paths.contains(path);
+                                    let is_registered =
+                                        app.templates_view.registered_paths_cache.contains(path);
                                     let is_selected =
                                         app.templates_view.selected_existing_file.as_ref()
                                             == Some(path);
@@ -475,7 +511,14 @@ impl TemplatesView {
                             // Discover existing qcow2 files for edit mode too
                             app.templates_view.discovered_qcow2_files =
                                 Self::discover_qcow2_files(&app.global_config.libvirt.images_dir);
-                            // Fetch disk-to-VM mapping ONCE when opening dialog (not every frame!)
+                            // Cache registered paths to avoid rebuilding every frame
+                            app.templates_view.registered_paths_cache = app
+                                .template_registry
+                                .list()
+                                .iter()
+                                .map(|t| t.path.clone())
+                                .collect();
+                            // Fetch disk-to-VM mapping ONCE when opening dialog
                             app.templates_view.disk_to_vm_map =
                                 app.libvirt.get_disk_to_vm_map().unwrap_or_default();
                             app.templates_view.show_selection_dialog = true;

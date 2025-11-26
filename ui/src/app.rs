@@ -221,6 +221,9 @@ pub struct TemplatesViewState {
     // Map of disk paths to VM names that use them
     pub disk_to_vm_map: HashMap<std::path::PathBuf, Vec<String>>,
 
+    // Cached list of registered template paths (to avoid rebuilding every frame)
+    pub registered_paths_cache: Vec<std::path::PathBuf>,
+
     // Delete confirmation
     pub pending_template_delete: Option<String>, // template ID to delete
     pub pending_template_delete_path: Option<std::path::PathBuf>, // path to delete
