@@ -1,0 +1,6 @@
+# Ignore build artifacts
+target/
+*.deb
+*.tar.gz
+*.AppImage
+
