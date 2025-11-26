@@ -87,42 +87,6 @@ impl TemplatesView {
             }
         }
 
-        // If no files found, try using 'ls' command (for permission-restricted directories)
-        if files.is_empty() {
-            if let Ok(output) = std::process::Command::new("ls")
-                .arg("-1")
-                .arg(images_dir)
-                .output()
-            {
-                if output.status.success() {
-                    let stdout = String::from_utf8_lossy(&output.stdout);
-                    for line in stdout.lines() {
-                        if line.to_lowercase().ends_with(".qcow2") {
-                            files.push(images_dir.join(line));
-                        }
-                    }
-                }
-            }
-        }
-
-        // If still no files, try with pkexec (will prompt for password)
-        if files.is_empty() {
-            if let Ok(output) = std::process::Command::new("pkexec")
-                .args(["ls", "-1"])
-                .arg(images_dir)
-                .output()
-            {
-                if output.status.success() {
-                    let stdout = String::from_utf8_lossy(&output.stdout);
-                    for line in stdout.lines() {
-                        if line.to_lowercase().ends_with(".qcow2") {
-                            files.push(images_dir.join(line));
-                        }
-                    }
-                }
-            }
-        }
-
         // Sort by filename
         files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
 
@@ -136,6 +100,14 @@ impl TemplatesView {
         } else {
             "Add Template"
         };
+
+        // Cache these outside the window - don't rebuild every frame!
+        let registered_paths: Vec<_> = app
+            .template_registry
+            .list()
+            .iter()
+            .map(|t| t.path.clone())
+            .collect();
 
         egui::Window::new(dialog_title)
             .collapsible(false)
@@ -166,18 +138,11 @@ impl TemplatesView {
                             "No qcow2 files found in the images directory",
                         );
                     } else {
-                        // Get list of already registered paths
-                        let registered_paths: Vec<_> = app
-                            .template_registry
-                            .list()
-                            .iter()
-                            .map(|t| t.path.clone())
-                            .collect();
-
                         egui::ScrollArea::vertical()
                             .max_height(250.0)
                             .show(ui, |ui| {
-                                for path in &app.templates_view.discovered_qcow2_files.clone() {
+                                // Don't clone the entire Vec every frame!
+                                for path in &app.templates_view.discovered_qcow2_files {
                                     let filename = path
                                         .file_name()
                                         .map(|n| n.to_string_lossy().to_string())
@@ -363,8 +328,14 @@ impl TemplatesView {
         let template_path = app.templates_view.pending_template_delete_path.clone();
 
         if let (Some(id), Some(path)) = (template_id, template_path) {
-            // Get VMs using this image for warning
-            let vms_using_image = app.libvirt.get_vms_using_image(&path).unwrap_or_default();
+            // Get VMs using this image from the cached disk_to_vm_map
+            // (Don't call virsh every frame - that freezes the UI!)
+            let vms_using_image = app
+                .templates_view
+                .disk_to_vm_map
+                .get(&path)
+                .cloned()
+                .unwrap_or_default();
 
             egui::Window::new("⚠ Confirm Delete")
                 .collapsible(false)
@@ -491,6 +462,9 @@ impl TemplatesView {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         // Delete button - now shows confirmation
                         if ui.small_button("🗑 Remove").clicked() {
+                            // Fetch disk-to-VM mapping for the delete confirmation dialog
+                            app.templates_view.disk_to_vm_map =
+                                app.libvirt.get_disk_to_vm_map().unwrap_or_default();
                             app.templates_view.pending_template_delete = Some(template.id.clone());
                             app.templates_view.pending_template_delete_path =
                                 Some(template.path.clone());
