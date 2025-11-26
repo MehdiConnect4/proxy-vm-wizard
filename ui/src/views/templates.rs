@@ -185,7 +185,9 @@ impl TemplatesView {
 
                                     // Get VMs associated with this image from cache
                                     // (Don't call virsh every frame - that's insanely slow!)
-                                    let vms = app.templates_view.disk_to_vm_map
+                                    let vms = app
+                                        .templates_view
+                                        .disk_to_vm_map
                                         .get(path)
                                         .cloned()
                                         .unwrap_or_default();
