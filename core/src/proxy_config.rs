@@ -1,8 +1,8 @@
 //! Proxy configuration file and apply-proxy.sh script generation
 
-use crate::{Result, ProxyConfig, GatewayMode};
-use std::path::Path;
+use crate::{GatewayMode, ProxyConfig, Result};
 use std::fs;
+use std::path::Path;
 
 /// Builder for generating proxy.conf and apply-proxy.sh files
 #[derive(Debug)]
@@ -119,7 +119,10 @@ impl ProxyConfigBuilder {
                 "OPENVPN_AUTH_FILE={}",
                 ovpn.auth_file.as_deref().unwrap_or("")
             ));
-            lines.push(format!("OPENVPN_ROUTE_ALL_TRAFFIC={}", ovpn.route_all_traffic));
+            lines.push(format!(
+                "OPENVPN_ROUTE_ALL_TRAFFIC={}",
+                ovpn.route_all_traffic
+            ));
         } else {
             lines.push("OPENVPN_CONFIG_PATH=".to_string());
             lines.push("OPENVPN_AUTH_FILE=".to_string());
@@ -315,7 +318,7 @@ exit 0
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ProxyType, ProxyHop, WireGuardConfig, OpenVpnConfig};
+    use crate::{OpenVpnConfig, ProxyHop, ProxyType, WireGuardConfig};
     use tempfile::tempdir;
 
     #[test]
@@ -438,4 +441,3 @@ mod tests {
         assert!(script_content.contains("ROLE=\"work\""));
     }
 }
-

@@ -97,4 +97,3 @@ impl Error {
         Error::Template(msg.into())
     }
 }
-

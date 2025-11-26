@@ -1,7 +1,7 @@
 //! Logs view - scrolling log display
 
-use eframe::egui;
 use crate::app::{ProxyVmWizardApp, StatusLevel};
+use eframe::egui;
 
 pub struct LogsView;
 
@@ -43,7 +43,7 @@ impl LogsView {
                         ui.label(
                             egui::RichText::new(entry.timestamp.format("%H:%M:%S").to_string())
                                 .color(egui::Color32::GRAY)
-                                .monospace()
+                                .monospace(),
                         );
                         ui.colored_label(color, icon);
                         ui.label(&entry.message);
@@ -52,8 +52,3 @@ impl LogsView {
             });
     }
 }
-
-
-
-
-

@@ -344,4 +344,3 @@ pub fn normalize_role_name(name: &str) -> String {
         .filter(|c| !c.is_whitespace())
         .collect()
 }
-

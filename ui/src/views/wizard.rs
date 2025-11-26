@@ -1,9 +1,9 @@
 //! Wizard view - create/edit roles
 
+use crate::app::{ProxyHopEntry, ProxyVmWizardApp, WizardMode, WizardStep};
+use crate::views::View;
 use eframe::egui;
 use proxy_vm_core::{GatewayMode, ProxyType};
-use crate::app::{ProxyVmWizardApp, WizardStep, WizardMode, ProxyHopEntry};
-use crate::views::View;
 
 pub struct WizardView;
 
@@ -18,7 +18,12 @@ impl WizardView {
 
         // Step indicator
         ui.horizontal(|ui| {
-            let steps = ["1. Role Basics", "2. Gateway Config", "3. Confirm", "4. Execute"];
+            let steps = [
+                "1. Role Basics",
+                "2. Gateway Config",
+                "3. Confirm",
+                "4. Execute",
+            ];
             for (i, step) in steps.iter().enumerate() {
                 let current = match app.wizard.step {
                     WizardStep::RoleBasics => 0,
@@ -26,15 +31,17 @@ impl WizardView {
                     WizardStep::Confirmation => 2,
                     WizardStep::Execution => 3,
                 };
-                
+
                 if i == current {
                     ui.strong(*step);
                 } else if i < current {
-                    ui.label(egui::RichText::new(*step).color(egui::Color32::from_rgb(34, 139, 34)));
+                    ui.label(
+                        egui::RichText::new(*step).color(egui::Color32::from_rgb(34, 139, 34)),
+                    );
                 } else {
                     ui.label(egui::RichText::new(*step).color(egui::Color32::GRAY));
                 }
-                
+
                 if i < steps.len() - 1 {
                     ui.label("→");
                 }
@@ -44,13 +51,11 @@ impl WizardView {
         ui.separator();
         ui.add_space(10.0);
 
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            match app.wizard.step {
-                WizardStep::RoleBasics => Self::show_step_role_basics(app, ui),
-                WizardStep::GatewayConfig => Self::show_step_gateway_config(app, ui),
-                WizardStep::Confirmation => Self::show_step_confirmation(app, ui),
-                WizardStep::Execution => Self::show_step_execution(app, ui),
-            }
+        egui::ScrollArea::vertical().show(ui, |ui| match app.wizard.step {
+            WizardStep::RoleBasics => Self::show_step_role_basics(app, ui),
+            WizardStep::GatewayConfig => Self::show_step_gateway_config(app, ui),
+            WizardStep::Confirmation => Self::show_step_confirmation(app, ui),
+            WizardStep::Execution => Self::show_step_execution(app, ui),
         });
 
         ui.add_space(20.0);
@@ -138,7 +143,7 @@ impl WizardView {
                 let response = ui.add(
                     egui::TextEdit::singleline(&mut app.wizard.role_name)
                         .hint_text("e.g., work, bank, personal")
-                        .desired_width(200.0)
+                        .desired_width(200.0),
                 );
                 if response.changed() {
                     app.wizard.role_name_error = None;
@@ -157,20 +162,23 @@ impl WizardView {
                 if gw_templates.is_empty() {
                     ui.colored_label(
                         egui::Color32::from_rgb(255, 165, 0),
-                        "No gateway templates. Add one in Templates view."
+                        "No gateway templates. Add one in Templates view.",
                     );
                 } else {
-                    let current_label = app.wizard.selected_gw_template_id
+                    let current_label = app
+                        .wizard
+                        .selected_gw_template_id
                         .as_ref()
                         .and_then(|id| app.template_registry.get(id))
                         .map(|t| t.label.clone())
                         .unwrap_or_else(|| "Select...".to_string());
-                    
+
                     egui::ComboBox::from_id_salt("gw_template")
                         .selected_text(&current_label)
                         .show_ui(ui, |ui| {
                             for template in gw_templates {
-                                let is_selected = app.wizard.selected_gw_template_id.as_ref() == Some(&template.id);
+                                let is_selected = app.wizard.selected_gw_template_id.as_ref()
+                                    == Some(&template.id);
                                 if ui.selectable_label(is_selected, &template.label).clicked() {
                                     app.wizard.selected_gw_template_id = Some(template.id.clone());
                                 }
@@ -185,25 +193,29 @@ impl WizardView {
                 if app_templates.is_empty() {
                     ui.colored_label(
                         egui::Color32::from_rgb(255, 165, 0),
-                        "No app templates. Add one in Templates view."
+                        "No app templates. Add one in Templates view.",
                     );
                 } else {
-                    let current_label = app.wizard.selected_app_template_id
+                    let current_label = app
+                        .wizard
+                        .selected_app_template_id
                         .as_ref()
                         .and_then(|id| app.template_registry.get(id))
                         .map(|t| t.label.clone())
                         .unwrap_or_else(|| "Select...".to_string());
-                    
+
                     egui::ComboBox::from_id_salt("app_template")
                         .selected_text(&current_label)
                         .show_ui(ui, |ui| {
                             for template in app_templates {
-                                let is_selected = app.wizard.selected_app_template_id.as_ref() == Some(&template.id);
+                                let is_selected = app.wizard.selected_app_template_id.as_ref()
+                                    == Some(&template.id);
                                 if ui.selectable_label(is_selected, &template.label).clicked() {
                                     app.wizard.selected_app_template_id = Some(template.id.clone());
                                     // Default disp to same as app
                                     if app.wizard.selected_disp_template_id.is_none() {
-                                        app.wizard.selected_disp_template_id = Some(template.id.clone());
+                                        app.wizard.selected_disp_template_id =
+                                            Some(template.id.clone());
                                     }
                                 }
                             }
@@ -217,19 +229,23 @@ impl WizardView {
                 if disp_templates.is_empty() {
                     ui.label("(Same as App template)");
                 } else {
-                    let current_label = app.wizard.selected_disp_template_id
+                    let current_label = app
+                        .wizard
+                        .selected_disp_template_id
                         .as_ref()
                         .and_then(|id| app.template_registry.get(id))
                         .map(|t| t.label.clone())
                         .unwrap_or_else(|| "Select...".to_string());
-                    
+
                     egui::ComboBox::from_id_salt("disp_template")
                         .selected_text(&current_label)
                         .show_ui(ui, |ui| {
                             for template in disp_templates {
-                                let is_selected = app.wizard.selected_disp_template_id.as_ref() == Some(&template.id);
+                                let is_selected = app.wizard.selected_disp_template_id.as_ref()
+                                    == Some(&template.id);
                                 if ui.selectable_label(is_selected, &template.label).clicked() {
-                                    app.wizard.selected_disp_template_id = Some(template.id.clone());
+                                    app.wizard.selected_disp_template_id =
+                                        Some(template.id.clone());
                                 }
                             }
                         });
@@ -244,7 +260,11 @@ impl WizardView {
             let role = proxy_vm_core::normalize_role_name(&app.wizard.role_name);
             ui.code(format!("Gateway VM: {}-gw", role));
             ui.code(format!("Internal network: {}-inet", role));
-            ui.code(format!("Config directory: {}/{}", app.global_config.cfg.root.display(), role));
+            ui.code(format!(
+                "Config directory: {}/{}",
+                app.global_config.cfg.root.display(),
+                role
+            ));
         }
     }
 
@@ -268,10 +288,16 @@ impl WizardView {
                     ui.label("You can only use one protocol at a time.");
                     ui.add_space(10.0);
                     ui.horizontal(|ui| {
-                        if ui.button(format!("Keep {}", app.wizard.gateway_mode.display_name())).clicked() {
+                        if ui
+                            .button(format!("Keep {}", app.wizard.gateway_mode.display_name()))
+                            .clicked()
+                        {
                             app.cancel_mode_change();
                         }
-                        if ui.button(format!("Switch to {}", new_mode.display_name())).clicked() {
+                        if ui
+                            .button(format!("Switch to {}", new_mode.display_name()))
+                            .clicked()
+                        {
                             app.confirm_mode_change();
                         }
                     });
@@ -284,13 +310,22 @@ impl WizardView {
         ui.label("Gateway Mode (choose one):");
         ui.horizontal(|ui| {
             let current_mode = app.wizard.gateway_mode;
-            if ui.radio(current_mode == GatewayMode::ProxyChain, "Proxy Chain").clicked() {
+            if ui
+                .radio(current_mode == GatewayMode::ProxyChain, "Proxy Chain")
+                .clicked()
+            {
                 app.request_mode_change(GatewayMode::ProxyChain);
             }
-            if ui.radio(current_mode == GatewayMode::WireGuard, "WireGuard").clicked() {
+            if ui
+                .radio(current_mode == GatewayMode::WireGuard, "WireGuard")
+                .clicked()
+            {
                 app.request_mode_change(GatewayMode::WireGuard);
             }
-            if ui.radio(current_mode == GatewayMode::OpenVpn, "OpenVPN").clicked() {
+            if ui
+                .radio(current_mode == GatewayMode::OpenVpn, "OpenVPN")
+                .clicked()
+            {
                 app.request_mode_change(GatewayMode::OpenVpn);
             }
         });
@@ -317,13 +352,16 @@ impl WizardView {
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.label(format!("Hop {}", i + 1));
-                        
+
                         if hop_count > 1 {
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                if ui.small_button("✕ Remove").clicked() {
-                                    to_remove = Some(i);
-                                }
-                            });
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if ui.small_button("✕ Remove").clicked() {
+                                        to_remove = Some(i);
+                                    }
+                                },
+                            );
                         }
                     });
 
@@ -339,34 +377,44 @@ impl WizardView {
                             ui.end_row();
 
                             ui.label("Host:");
-                            ui.add(egui::TextEdit::singleline(&mut hop.host)
-                                .hint_text("IP or hostname")
-                                .desired_width(200.0));
+                            ui.add(
+                                egui::TextEdit::singleline(&mut hop.host)
+                                    .hint_text("IP or hostname")
+                                    .desired_width(200.0),
+                            );
                             ui.end_row();
 
                             ui.label("Port:");
-                            ui.add(egui::TextEdit::singleline(&mut hop.port)
-                                .hint_text("1080")
-                                .desired_width(80.0));
+                            ui.add(
+                                egui::TextEdit::singleline(&mut hop.port)
+                                    .hint_text("1080")
+                                    .desired_width(80.0),
+                            );
                             ui.end_row();
 
                             ui.label("Username:");
-                            ui.add(egui::TextEdit::singleline(&mut hop.username)
-                                .hint_text("(optional)")
-                                .desired_width(150.0));
+                            ui.add(
+                                egui::TextEdit::singleline(&mut hop.username)
+                                    .hint_text("(optional)")
+                                    .desired_width(150.0),
+                            );
                             ui.end_row();
 
                             ui.label("Password:");
-                            ui.add(egui::TextEdit::singleline(&mut hop.password)
-                                .password(true)
-                                .hint_text("(optional)")
-                                .desired_width(150.0));
+                            ui.add(
+                                egui::TextEdit::singleline(&mut hop.password)
+                                    .password(true)
+                                    .hint_text("(optional)")
+                                    .desired_width(150.0),
+                            );
                             ui.end_row();
 
                             ui.label("Label:");
-                            ui.add(egui::TextEdit::singleline(&mut hop.label)
-                                .hint_text("(optional, e.g., 'US Exit')")
-                                .desired_width(150.0));
+                            ui.add(
+                                egui::TextEdit::singleline(&mut hop.label)
+                                    .hint_text("(optional, e.g., 'US Exit')")
+                                    .desired_width(150.0),
+                            );
                             ui.end_row();
                         });
 
@@ -374,11 +422,17 @@ impl WizardView {
                     ui.horizontal(|ui| {
                         if let Some(status) = hop.test_status {
                             if status {
-                                ui.colored_label(egui::Color32::from_rgb(34, 139, 34), "✓ Connected");
+                                ui.colored_label(
+                                    egui::Color32::from_rgb(34, 139, 34),
+                                    "✓ Connected",
+                                );
                             } else {
                                 ui.colored_label(
                                     egui::Color32::from_rgb(220, 20, 60),
-                                    format!("✗ {}", hop.test_message.as_deref().unwrap_or("Failed"))
+                                    format!(
+                                        "✗ {}",
+                                        hop.test_message.as_deref().unwrap_or("Failed")
+                                    ),
                                 );
                             }
                         }
@@ -393,10 +447,9 @@ impl WizardView {
         }
 
         // Add hop button
-        if app.wizard.proxy_hops.len() < 8
-            && ui.button("➕ Add Proxy Hop").clicked() {
-                app.wizard.proxy_hops.push(ProxyHopEntry::default());
-            }
+        if app.wizard.proxy_hops.len() < 8 && ui.button("➕ Add Proxy Hop").clicked() {
+            app.wizard.proxy_hops.push(ProxyHopEntry::default());
+        }
 
         // Handle test button clicks (separate to avoid borrow issues)
         ui.add_space(10.0);
@@ -422,9 +475,13 @@ impl WizardView {
             .show(ui, |ui| {
                 ui.label("Config file:");
                 ui.horizontal(|ui| {
-                    ui.add(egui::TextEdit::singleline(&mut app.wizard.wireguard_config.config_filename)
+                    ui.add(
+                        egui::TextEdit::singleline(
+                            &mut app.wizard.wireguard_config.config_filename,
+                        )
                         .hint_text("Click Browse to select...")
-                        .desired_width(250.0));
+                        .desired_width(250.0),
+                    );
                     if ui.button("📂 Browse...").clicked() {
                         if let Some(path) = rfd::FileDialog::new()
                             .add_filter("WireGuard Config", &["conf"])
@@ -432,16 +489,19 @@ impl WizardView {
                             .pick_file()
                         {
                             // Store full path temporarily, we'll copy it during execution
-                            app.wizard.wireguard_config.config_filename = path.display().to_string();
+                            app.wizard.wireguard_config.config_filename =
+                                path.display().to_string();
                         }
                     }
                 });
                 ui.end_row();
 
                 ui.label("Interface name:");
-                ui.add(egui::TextEdit::singleline(&mut app.wizard.wireguard_config.interface_name)
-                    .hint_text("wg0")
-                    .desired_width(100.0));
+                ui.add(
+                    egui::TextEdit::singleline(&mut app.wizard.wireguard_config.interface_name)
+                        .hint_text("wg0")
+                        .desired_width(100.0),
+                );
                 ui.end_row();
 
                 ui.label("Route all traffic:");
@@ -463,9 +523,11 @@ impl WizardView {
             .show(ui, |ui| {
                 ui.label("Config file:");
                 ui.horizontal(|ui| {
-                    ui.add(egui::TextEdit::singleline(&mut app.wizard.openvpn_config.config_filename)
-                        .hint_text("Click Browse to select...")
-                        .desired_width(250.0));
+                    ui.add(
+                        egui::TextEdit::singleline(&mut app.wizard.openvpn_config.config_filename)
+                            .hint_text("Click Browse to select...")
+                            .desired_width(250.0),
+                    );
                     if ui.button("📂 Browse...").clicked() {
                         if let Some(path) = rfd::FileDialog::new()
                             .add_filter("OpenVPN Config", &["ovpn", "conf"])
@@ -480,9 +542,11 @@ impl WizardView {
 
                 ui.label("Auth file (optional):");
                 ui.horizontal(|ui| {
-                    ui.add(egui::TextEdit::singleline(&mut app.wizard.openvpn_config.auth_filename)
-                        .hint_text("Optional credentials file")
-                        .desired_width(250.0));
+                    ui.add(
+                        egui::TextEdit::singleline(&mut app.wizard.openvpn_config.auth_filename)
+                            .hint_text("Optional credentials file")
+                            .desired_width(250.0),
+                    );
                     if ui.button("📂 Browse...").clicked() {
                         if let Some(path) = rfd::FileDialog::new()
                             .add_filter("Text Files", &["txt"])
@@ -506,42 +570,65 @@ impl WizardView {
         ui.add_space(10.0);
 
         let role = proxy_vm_core::normalize_role_name(&app.wizard.role_name);
-        
+
         ui.label("The following resources will be created:");
         ui.add_space(10.0);
 
         egui::Frame::group(ui.style())
             .inner_margin(10.0)
             .show(ui, |ui| {
-                ui.label(format!("📁 Role directory: {}/{}", app.global_config.cfg.root.display(), role));
+                ui.label(format!(
+                    "📁 Role directory: {}/{}",
+                    app.global_config.cfg.root.display(),
+                    role
+                ));
                 ui.label(format!("🌐 Network: {}-inet", role));
-                ui.label(format!("💾 Overlay disk: {}/{}-gw.qcow2", app.global_config.libvirt.images_dir.display(), role));
+                ui.label(format!(
+                    "💾 Overlay disk: {}/{}-gw.qcow2",
+                    app.global_config.libvirt.images_dir.display(),
+                    role
+                ));
                 ui.label(format!("🖥 Gateway VM: {}-gw", role));
-                
+
                 if let Some(ref id) = app.wizard.selected_gw_template_id {
                     if let Some(template) = app.template_registry.get(id) {
-                        ui.label(format!("📀 Template: {} ({})", template.label, template.os_variant));
+                        ui.label(format!(
+                            "📀 Template: {} ({})",
+                            template.label, template.os_variant
+                        ));
                     }
                 }
 
                 ui.add_space(5.0);
-                ui.label(format!("Gateway Mode: {}", app.wizard.gateway_mode.display_name()));
-                
+                ui.label(format!(
+                    "Gateway Mode: {}",
+                    app.wizard.gateway_mode.display_name()
+                ));
+
                 match app.wizard.gateway_mode {
                     GatewayMode::ProxyChain => {
                         ui.label(format!("Proxy hops: {}", app.wizard.proxy_hops.len()));
                     }
                     GatewayMode::WireGuard => {
-                        ui.label(format!("WireGuard config: /proxy/{}", app.wizard.wireguard_config.config_filename));
+                        ui.label(format!(
+                            "WireGuard config: /proxy/{}",
+                            app.wizard.wireguard_config.config_filename
+                        ));
                     }
                     GatewayMode::OpenVpn => {
-                        ui.label(format!("OpenVPN config: /proxy/{}", app.wizard.openvpn_config.config_filename));
+                        ui.label(format!(
+                            "OpenVPN config: /proxy/{}",
+                            app.wizard.openvpn_config.config_filename
+                        ));
                     }
                 }
             });
 
         ui.add_space(10.0);
-        ui.checkbox(&mut app.wizard.create_app_vm, "Also create an App VM after gateway");
+        ui.checkbox(
+            &mut app.wizard.create_app_vm,
+            "Also create an App VM after gateway",
+        );
     }
 
     fn show_step_execution(app: &mut ProxyVmWizardApp, ui: &mut egui::Ui) {
@@ -558,7 +645,7 @@ impl WizardView {
         for (i, msg) in app.wizard.execution_messages.iter().enumerate() {
             let is_current = i == app.wizard.execution_step.saturating_sub(1);
             let is_done = i < app.wizard.execution_step;
-            
+
             let color = if is_done {
                 egui::Color32::from_rgb(34, 139, 34)
             } else if is_current && app.wizard.is_executing {
@@ -566,14 +653,16 @@ impl WizardView {
             } else {
                 egui::Color32::WHITE
             };
-            
+
             ui.colored_label(color, msg);
         }
 
         if let Some(ref error) = app.wizard.execution_error.clone() {
             ui.add_space(10.0);
-            ui.colored_label(egui::Color32::from_rgb(220, 20, 60), format!("❌ Error: {}", error));
+            ui.colored_label(
+                egui::Color32::from_rgb(220, 20, 60),
+                format!("❌ Error: {}", error),
+            );
         }
     }
 }
-

@@ -1,10 +1,10 @@
 //! Configuration management for global settings, templates, and roles
 
-use crate::{Error, Result, RoleKind, GatewayMode, EncryptionManager, auth};
+use crate::{auth, EncryptionManager, Error, GatewayMode, Result, RoleKind};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 /// Current config version for migration support
 pub const CONFIG_VERSION: u32 = 1;
@@ -59,7 +59,7 @@ impl Default for GlobalConfig {
                 lan_net: "lan-net".to_string(),
             },
             defaults: DefaultsSection {
-                gateway_ram_mb: 1024,  // Minimum recommended for Debian
+                gateway_ram_mb: 1024, // Minimum recommended for Debian
                 app_ram_mb: 2048,
                 disp_ram_mb: 2048,
                 debian_os_variant: "debian12".to_string(),
@@ -94,12 +94,12 @@ impl GlobalConfig {
     pub fn load(path: &Path) -> Result<Self> {
         let content = fs::read_to_string(path)?;
         let config: Self = toml::from_str(&content)?;
-        
+
         // Version migration would go here
         if config.version != CONFIG_VERSION {
             // For now, just use as-is; future versions would migrate
         }
-        
+
         Ok(config)
     }
 
@@ -201,7 +201,7 @@ impl Template {
             path,
             os_variant: os_variant.into(),
             role_kind,
-            default_ram_mb: 1024,  // Minimum recommended for most OS
+            default_ram_mb: 1024, // Minimum recommended for most OS
             notes: None,
         }
     }
@@ -314,9 +314,9 @@ impl TemplateRegistry {
 
     /// Remove a template by ID
     pub fn remove(&mut self, id: &str) -> Result<()> {
-        self.templates.remove(id).ok_or_else(|| {
-            Error::NotFound(format!("Template with ID '{}' not found", id))
-        })?;
+        self.templates
+            .remove(id)
+            .ok_or_else(|| Error::NotFound(format!("Template with ID '{}' not found", id)))?;
         Ok(())
     }
 
@@ -337,9 +337,7 @@ impl TemplateRegistry {
     pub fn get_gateway_templates(&self) -> Vec<&Template> {
         self.templates
             .values()
-            .filter(|t| {
-                t.role_kind == RoleKind::ProxyGateway || t.role_kind == RoleKind::Generic
-            })
+            .filter(|t| t.role_kind == RoleKind::ProxyGateway || t.role_kind == RoleKind::Generic)
             .collect()
     }
 
@@ -459,7 +457,7 @@ impl RoleMeta {
     pub fn save(&self, cfg_root: &Path) -> Result<()> {
         let role_dir = cfg_root.join(&self.role_name);
         fs::create_dir_all(&role_dir)?;
-        
+
         let path = Self::path_for_role(cfg_root, &self.role_name);
         let content = toml::to_string_pretty(self)?;
         fs::write(&path, content)?;
@@ -525,17 +523,17 @@ mod tests {
         let config = GlobalConfig::default();
         assert_eq!(config.version, CONFIG_VERSION);
         assert_eq!(config.libvirt.lan_net, "lan-net");
-        assert_eq!(config.defaults.gateway_ram_mb, 1024);  // Updated per virt-install recommendations
+        assert_eq!(config.defaults.gateway_ram_mb, 1024); // Updated per virt-install recommendations
     }
 
     #[test]
     fn test_global_config_save_load() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("config.toml");
-        
+
         let config = GlobalConfig::default();
         config.save_to(&path).unwrap();
-        
+
         let loaded = GlobalConfig::load(&path).unwrap();
         assert_eq!(loaded.version, config.version);
         assert_eq!(loaded.libvirt.lan_net, config.libvirt.lan_net);
@@ -544,7 +542,7 @@ mod tests {
     #[test]
     fn test_template_registry() {
         let mut registry = TemplateRegistry::default();
-        
+
         let template = Template::new(
             "test-1",
             "Test Template",
@@ -552,13 +550,13 @@ mod tests {
             "debian12",
             RoleKind::ProxyGateway,
         );
-        
+
         registry.add(template.clone()).unwrap();
         assert!(registry.get("test-1").is_some());
-        
+
         // Can't add duplicate
         assert!(registry.add(template).is_err());
-        
+
         // Can remove
         registry.remove("test-1").unwrap();
         assert!(registry.get("test-1").is_none());
@@ -568,15 +566,14 @@ mod tests {
     fn test_role_meta() {
         let dir = tempdir().unwrap();
         let cfg_root = dir.path();
-        
+
         let mut meta = RoleMeta::new("work".to_string());
         meta.gw_template_id = Some("template-1".to_string());
-        
+
         meta.save(cfg_root).unwrap();
-        
+
         let loaded = RoleMeta::load(cfg_root, "work").unwrap();
         assert_eq!(loaded.role_name, "work");
         assert_eq!(loaded.gw_template_id, Some("template-1".to_string()));
     }
 }
-

@@ -1,19 +1,17 @@
 //! Libvirt/QEMU integration via CLI tools (virsh, virt-install, qemu-img)
 
-use crate::{Error, Result, VmInfo, VmState, VmKind, NetworkInfo, NetworkState};
+use crate::{Error, NetworkInfo, NetworkState, Result, VmInfo, VmKind, VmState};
 use std::collections::HashMap;
+use std::fs;
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
-use std::net::{TcpStream, SocketAddr, ToSocketAddrs};
 use std::time::Duration;
-use std::fs;
 
 /// Helper to convert Path to &str with proper error handling
 fn path_to_str(path: &Path) -> Result<&str> {
-    path.to_str().ok_or_else(|| Error::validation(format!(
-        "Invalid path encoding: {}",
-        path.display()
-    )))
+    path.to_str()
+        .ok_or_else(|| Error::validation(format!("Invalid path encoding: {}", path.display())))
 }
 
 /// Output from a command execution
@@ -54,19 +52,16 @@ impl LibvirtAdapter {
 
     /// Run a command and capture output
     pub fn run_cmd(&self, cmd: &str, args: &[&str]) -> Result<CommandOutput> {
-        let output = Command::new(cmd)
-            .args(args)
-            .output()
-            .map_err(|e| {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    Error::CommandNotFound(cmd.to_string())
-                } else {
-                    Error::Command {
-                        cmd: format!("{} {}", cmd, args.join(" ")),
-                        message: e.to_string(),
-                    }
+        let output = Command::new(cmd).args(args).output().map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                Error::CommandNotFound(cmd.to_string())
+            } else {
+                Error::Command {
+                    cmd: format!("{} {}", cmd, args.join(" ")),
+                    message: e.to_string(),
                 }
-            })?;
+            }
+        })?;
 
         Ok(self.parse_output(output))
     }
@@ -181,7 +176,7 @@ impl LibvirtAdapter {
     /// Returns true if the network was created, false if it already existed
     pub fn ensure_role_network(&self, role: &str) -> Result<bool> {
         let net_name = format!("{}-inet", role);
-        
+
         if self.network_exists(&net_name)? {
             return Ok(false);
         }
@@ -260,14 +255,15 @@ impl LibvirtAdapter {
         // Build the full command as a single string for pkexec
         let mut full_args = vec![cmd];
         full_args.extend(args);
-        
+
         self.run_cmd("pkexec", &full_args)
     }
 
     /// Copy a template to the libvirt images directory using pkexec (graphical sudo)
     /// Returns the new path, or the existing path if file already exists
     pub fn copy_template_to_images_dir(&self, source: &Path, images_dir: &Path) -> Result<PathBuf> {
-        let filename = source.file_name()
+        let filename = source
+            .file_name()
             .ok_or_else(|| Error::template("Invalid template filename"))?;
         let dest = images_dir.join(filename);
 
@@ -277,8 +273,12 @@ impl LibvirtAdapter {
         }
 
         // Copy using pkexec (shows graphical password dialog)
-        let source_str = source.to_str().ok_or_else(|| Error::validation("Invalid source path encoding"))?;
-        let dest_str_tmp = dest.to_str().ok_or_else(|| Error::validation("Invalid destination path encoding"))?;
+        let source_str = source
+            .to_str()
+            .ok_or_else(|| Error::validation("Invalid source path encoding"))?;
+        let dest_str_tmp = dest
+            .to_str()
+            .ok_or_else(|| Error::validation("Invalid destination path encoding"))?;
         let output = self.run_privileged("cp", &[source_str, dest_str_tmp])?;
         if !output.success() {
             return Err(Error::libvirt(format!(
@@ -289,7 +289,9 @@ impl LibvirtAdapter {
 
         // Set proper ownership (libvirt-qemu:kvm or root:root depending on system)
         // Try libvirt-qemu first, fallback to just leaving it as root
-        let dest_str = dest.to_str().ok_or_else(|| Error::validation("Invalid path encoding"))?;
+        let dest_str = dest
+            .to_str()
+            .ok_or_else(|| Error::validation("Invalid path encoding"))?;
         if let Ok(chown_output) = self.run_privileged("chown", &["libvirt-qemu:kvm", dest_str]) {
             if !chown_output.success() {
                 // Try alternative ownership
@@ -322,11 +324,7 @@ impl LibvirtAdapter {
 
     /// Create a qcow2 overlay disk backed by a template
     /// Uses pkexec if the overlay path is in a system directory
-    pub fn create_overlay_disk(
-        &self,
-        template_path: &Path,
-        overlay_path: &Path,
-    ) -> Result<()> {
+    pub fn create_overlay_disk(&self, template_path: &Path, overlay_path: &Path) -> Result<()> {
         // Verify template exists
         if !template_path.exists() {
             return Err(Error::template(format!(
@@ -357,7 +355,7 @@ impl LibvirtAdapter {
         }
 
         // Check if we need elevated privileges (writing to system directories)
-        let needs_privilege = overlay_path.starts_with("/var/lib") 
+        let needs_privilege = overlay_path.starts_with("/var/lib")
             || overlay_path.starts_with("/usr")
             || overlay_path.starts_with("/etc");
 
@@ -366,9 +364,12 @@ impl LibvirtAdapter {
                 "qemu-img",
                 &[
                     "create",
-                    "-f", "qcow2",
-                    "-F", "qcow2",
-                    "-b", template_str,
+                    "-f",
+                    "qcow2",
+                    "-F",
+                    "qcow2",
+                    "-b",
+                    template_str,
                     overlay_str,
                 ],
             )?
@@ -377,9 +378,12 @@ impl LibvirtAdapter {
                 "qemu-img",
                 &[
                     "create",
-                    "-f", "qcow2",
-                    "-F", "qcow2",
-                    "-b", template_str,
+                    "-f",
+                    "qcow2",
+                    "-F",
+                    "qcow2",
+                    "-b",
+                    template_str,
                     overlay_str,
                 ],
             )?
@@ -407,9 +411,8 @@ impl LibvirtAdapter {
         }
 
         // Check if we need elevated privileges
-        let needs_privilege = path.starts_with("/var/lib") 
-            || path.starts_with("/usr")
-            || path.starts_with("/etc");
+        let needs_privilege =
+            path.starts_with("/var/lib") || path.starts_with("/usr") || path.starts_with("/etc");
 
         let path_str = path_to_str(path)?;
 
@@ -844,7 +847,7 @@ impl LibvirtAdapter {
     /// Get a map of disk paths to VM names for all VMs
     pub fn get_disk_to_vm_map(&self) -> Result<HashMap<PathBuf, Vec<String>>> {
         let mut map: HashMap<PathBuf, Vec<String>> = HashMap::new();
-        
+
         // Get list of all VMs
         let output = self.run_cmd("virsh", &["list", "--all", "--name"])?;
         if !output.success() {
@@ -858,9 +861,7 @@ impl LibvirtAdapter {
             }
 
             if let Ok(Some(disk_path)) = self.get_vm_disk_path(vm_name) {
-                map.entry(disk_path)
-                    .or_default()
-                    .push(vm_name.to_string());
+                map.entry(disk_path).or_default().push(vm_name.to_string());
             }
         }
 
@@ -1021,6 +1022,3 @@ mod tests {
         assert_eq!(VmState::from_virsh_state("unknown"), VmState::Unknown);
     }
 }
-
-
-

@@ -2,17 +2,15 @@
 
 use eframe::egui;
 use proxy_vm_core::{
-    GlobalConfig, TemplateRegistry, RoleMeta, LibvirtAdapter, ProxyConfig,
-    ProxyConfigBuilder, RoleKind, GatewayMode, ProxyHop, ProxyType,
-    WireGuardConfig, OpenVpnConfig, VmInfo,
-    validate_role_name, normalize_role_name, config::discover_roles,
-    AuthState, EncryptionManager,
+    config::discover_roles, normalize_role_name, validate_role_name, AuthState, EncryptionManager,
+    GatewayMode, GlobalConfig, LibvirtAdapter, OpenVpnConfig, ProxyConfig, ProxyConfigBuilder,
+    ProxyHop, ProxyType, RoleKind, RoleMeta, TemplateRegistry, VmInfo, WireGuardConfig,
 };
-use std::path::PathBuf;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
-use crate::views::{View, DashboardView, WizardView, TemplatesView, SettingsView, LogsView};
+use crate::views::{DashboardView, LogsView, SettingsView, TemplatesView, View, WizardView};
 
 /// Authentication screen state
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -43,7 +41,11 @@ pub enum AsyncMessage {
     RolesDiscovered(Vec<String>),
     OperationSuccess(String),
     OperationError(String),
-    ConnectionTestResult { index: usize, success: bool, message: String },
+    ConnectionTestResult {
+        index: usize,
+        success: bool,
+        message: String,
+    },
 }
 
 /// Main application state
@@ -72,7 +74,7 @@ pub struct ProxyVmWizardApp {
     // Templates view state
     pub templates_view: TemplatesViewState,
 
-    // Settings view state  
+    // Settings view state
     pub settings_view: SettingsViewState,
 
     // Logs
@@ -210,20 +212,20 @@ pub struct OpenVpnConfigEntry {
 pub struct TemplatesViewState {
     pub show_add_dialog: bool,
     pub edit_template_id: Option<String>,
-    
+
     // Selection mode - first ask to pick existing or browse new
     pub show_selection_dialog: bool,
     pub discovered_qcow2_files: Vec<std::path::PathBuf>,
     pub selected_existing_file: Option<std::path::PathBuf>,
-    
+
     // Map of disk paths to VM names that use them
     pub disk_to_vm_map: HashMap<std::path::PathBuf, Vec<String>>,
-    
+
     // Delete confirmation
-    pub pending_template_delete: Option<String>,  // template ID to delete
-    pub pending_template_delete_path: Option<std::path::PathBuf>,  // path to delete
-    pub delete_image_file: bool,  // Whether to also delete the image file (default: true)
-    
+    pub pending_template_delete: Option<String>, // template ID to delete
+    pub pending_template_delete_path: Option<std::path::PathBuf>, // path to delete
+    pub delete_image_file: bool, // Whether to also delete the image file (default: true)
+
     // Form fields
     pub form_label: String,
     pub form_path: String,
@@ -255,9 +257,7 @@ impl ProxyVmWizardApp {
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "JetBrainsMono".to_owned(),
-            egui::FontData::from_static(include_bytes!(
-                "../assets/JetBrainsMono-Regular.ttf"
-            )),
+            egui::FontData::from_static(include_bytes!("../assets/JetBrainsMono-Regular.ttf")),
         );
         fonts
             .families
@@ -349,7 +349,8 @@ impl ProxyVmWizardApp {
                 Ok(registry) => self.template_registry = registry,
                 Err(_) => {
                     // Try plain registry
-                    self.template_registry = TemplateRegistry::load_or_default().unwrap_or_default();
+                    self.template_registry =
+                        TemplateRegistry::load_or_default().unwrap_or_default();
                     // Save as encrypted
                     if let Err(e) = self.template_registry.save_encrypted(encryption) {
                         warnings.push(format!("Failed to encrypt templates: {}", e));
@@ -440,7 +441,10 @@ impl ProxyVmWizardApp {
                 match auth_state.verify_password(&self.auth_view.password) {
                     Ok(true) => {
                         // Create encryption manager
-                        match EncryptionManager::from_password(&self.auth_view.password, &auth_state) {
+                        match EncryptionManager::from_password(
+                            &self.auth_view.password,
+                            &auth_state,
+                        ) {
                             Ok(encryption) => {
                                 self.encryption = Some(encryption);
                                 self.auth_view.screen = AuthScreen::None;
@@ -476,62 +480,72 @@ impl ProxyVmWizardApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(80.0);
-                
+
                 ui.heading("🔐 Proxy VM Wizard");
                 ui.add_space(10.0);
                 ui.label("Welcome! Please set up a password to secure your configuration.");
                 ui.add_space(5.0);
-                ui.label(egui::RichText::new("This password will encrypt all your settings and templates.")
+                ui.label(
+                    egui::RichText::new(
+                        "This password will encrypt all your settings and templates.",
+                    )
                     .small()
-                    .color(egui::Color32::from_rgb(150, 150, 150)));
-                
+                    .color(egui::Color32::from_rgb(150, 150, 150)),
+                );
+
                 ui.add_space(30.0);
-                
+
                 egui::Frame::group(ui.style())
                     .fill(egui::Color32::from_rgb(30, 35, 45))
                     .rounding(8.0)
                     .inner_margin(20.0)
                     .show(ui, |ui| {
                         ui.set_width(350.0);
-                        
+
                         ui.label("Create Password:");
                         ui.add_space(5.0);
-                        let password_edit = egui::TextEdit::singleline(&mut self.auth_view.password)
-                            .password(!self.auth_view.show_password)
-                            .hint_text("Enter password (min 8 characters)")
-                            .desired_width(300.0);
+                        let password_edit =
+                            egui::TextEdit::singleline(&mut self.auth_view.password)
+                                .password(!self.auth_view.show_password)
+                                .hint_text("Enter password (min 8 characters)")
+                                .desired_width(300.0);
                         ui.add(password_edit);
-                        
+
                         ui.add_space(10.0);
-                        
+
                         ui.label("Confirm Password:");
                         ui.add_space(5.0);
-                        let confirm_edit = egui::TextEdit::singleline(&mut self.auth_view.password_confirm)
-                            .password(!self.auth_view.show_password)
-                            .hint_text("Confirm password")
-                            .desired_width(300.0);
+                        let confirm_edit =
+                            egui::TextEdit::singleline(&mut self.auth_view.password_confirm)
+                                .password(!self.auth_view.show_password)
+                                .hint_text("Confirm password")
+                                .desired_width(300.0);
                         ui.add(confirm_edit);
-                        
+
                         ui.add_space(10.0);
                         ui.checkbox(&mut self.auth_view.show_password, "Show password");
-                        
+
                         if let Some(ref error) = self.auth_view.error {
                             ui.add_space(10.0);
                             ui.colored_label(egui::Color32::from_rgb(220, 20, 60), error);
                         }
-                        
+
                         ui.add_space(20.0);
-                        
+
                         ui.horizontal(|ui| {
                             if ui.button("🔐 Create Password & Continue").clicked() {
                                 self.setup_password();
                             }
                         });
                     });
-                
+
                 ui.add_space(20.0);
-                ui.label(egui::RichText::new("⚠ Remember this password! It cannot be recovered if lost.")
-                    .color(egui::Color32::from_rgb(255, 165, 0)));
+                ui.label(
+                    egui::RichText::new(
+                        "⚠ Remember this password! It cannot be recovered if lost.",
+                    )
+                    .color(egui::Color32::from_rgb(255, 165, 0)),
+                );
             });
         });
     }
@@ -541,44 +555,45 @@ impl ProxyVmWizardApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(100.0);
-                
+
                 ui.heading("🔐 Proxy VM Wizard");
                 ui.add_space(10.0);
                 ui.label("Enter your password to unlock the application.");
-                
+
                 ui.add_space(30.0);
-                
+
                 egui::Frame::group(ui.style())
                     .fill(egui::Color32::from_rgb(30, 35, 45))
                     .rounding(8.0)
                     .inner_margin(20.0)
                     .show(ui, |ui| {
                         ui.set_width(350.0);
-                        
+
                         ui.label("Password:");
                         ui.add_space(5.0);
-                        
-                        let password_edit = egui::TextEdit::singleline(&mut self.auth_view.password)
-                            .password(!self.auth_view.show_password)
-                            .hint_text("Enter your password")
-                            .desired_width(300.0);
+
+                        let password_edit =
+                            egui::TextEdit::singleline(&mut self.auth_view.password)
+                                .password(!self.auth_view.show_password)
+                                .hint_text("Enter your password")
+                                .desired_width(300.0);
                         let response = ui.add(password_edit);
-                        
+
                         // Submit on Enter
                         if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                             self.login();
                         }
-                        
+
                         ui.add_space(10.0);
                         ui.checkbox(&mut self.auth_view.show_password, "Show password");
-                        
+
                         if let Some(ref error) = self.auth_view.error {
                             ui.add_space(10.0);
                             ui.colored_label(egui::Color32::from_rgb(220, 20, 60), error);
                         }
-                        
+
                         ui.add_space(20.0);
-                        
+
                         if ui.button("🔓 Unlock").clicked() {
                             self.login();
                         }
@@ -616,7 +631,7 @@ impl ProxyVmWizardApp {
 
     pub fn refresh_vms(&mut self) {
         self.role_vms.clear();
-        
+
         // Refresh roles
         self.discovered_roles = discover_roles(&self.global_config.cfg.root).unwrap_or_default();
 
@@ -625,10 +640,7 @@ impl ProxyVmWizardApp {
             Ok(vms) => {
                 for vm in vms {
                     if let Some(role) = &vm.role {
-                        self.role_vms
-                            .entry(role.clone())
-                            .or_default()
-                            .push(vm);
+                        self.role_vms.entry(role.clone()).or_default().push(vm);
                     }
                 }
             }
@@ -644,12 +656,15 @@ impl ProxyVmWizardApp {
         // First check current state
         if let Ok(Some(info)) = self.libvirt.get_vm_info(name) {
             if info.state.is_running() {
-                self.set_status(StatusLevel::Warning, format!("VM '{}' is already running", name));
+                self.set_status(
+                    StatusLevel::Warning,
+                    format!("VM '{}' is already running", name),
+                );
                 self.refresh_vms();
                 return;
             }
         }
-        
+
         match self.libvirt.start_vm(name) {
             Ok(_) => {
                 self.set_status(StatusLevel::Success, format!("Started VM: {}", name));
@@ -658,7 +673,10 @@ impl ProxyVmWizardApp {
             Err(e) => {
                 let msg = e.to_string();
                 if msg.contains("already running") || msg.contains("is running") {
-                    self.set_status(StatusLevel::Warning, format!("VM '{}' is already running", name));
+                    self.set_status(
+                        StatusLevel::Warning,
+                        format!("VM '{}' is already running", name),
+                    );
                 } else {
                     self.set_status(StatusLevel::Error, format!("Failed to start VM: {}", e));
                 }
@@ -671,12 +689,15 @@ impl ProxyVmWizardApp {
         // First check current state
         if let Ok(Some(info)) = self.libvirt.get_vm_info(name) {
             if !info.state.is_running() {
-                self.set_status(StatusLevel::Warning, format!("VM '{}' is not running", name));
+                self.set_status(
+                    StatusLevel::Warning,
+                    format!("VM '{}' is not running", name),
+                );
                 self.refresh_vms();
                 return;
             }
         }
-        
+
         match self.libvirt.stop_vm(name) {
             Ok(_) => {
                 self.set_status(StatusLevel::Success, format!("Stopping VM: {}", name));
@@ -685,7 +706,10 @@ impl ProxyVmWizardApp {
             Err(e) => {
                 let msg = e.to_string();
                 if msg.contains("not running") || msg.contains("domain is not running") {
-                    self.set_status(StatusLevel::Warning, format!("VM '{}' is already stopped", name));
+                    self.set_status(
+                        StatusLevel::Warning,
+                        format!("VM '{}' is already stopped", name),
+                    );
                 } else {
                     self.set_status(StatusLevel::Error, format!("Failed to stop VM: {}", e));
                 }
@@ -697,7 +721,7 @@ impl ProxyVmWizardApp {
     pub fn reset_wizard(&mut self) {
         // Clean up any partial resources from previous wizard run
         self.cleanup_wizard_resources();
-        
+
         self.wizard = WizardState::default();
         // Add initial proxy hop
         self.wizard.proxy_hops.push(ProxyHopEntry::default());
@@ -705,9 +729,10 @@ impl ProxyVmWizardApp {
 
     /// Check if proxy chain has any data entered
     pub fn proxy_chain_has_data(&self) -> bool {
-        self.wizard.proxy_hops.iter().any(|hop| {
-            !hop.host.is_empty() || !hop.port.is_empty()
-        })
+        self.wizard
+            .proxy_hops
+            .iter()
+            .any(|hop| !hop.host.is_empty() || !hop.port.is_empty())
     }
 
     /// Check if wireguard config has data
@@ -802,8 +827,9 @@ impl ProxyVmWizardApp {
 
     /// Parse proxy.conf content into the config editor state
     fn parse_proxy_conf_into_editor(&mut self, content: &str) {
-        let mut values: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-        
+        let mut values: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+
         for line in content.lines() {
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
@@ -831,7 +857,11 @@ impl ProxyVmWizardApp {
                 for i in 1..=count {
                     let mut hop = ProxyHopEntry::default();
                     if let Some(t) = values.get(&format!("PROXY_{}_TYPE", i)) {
-                        hop.proxy_type = if t == "HTTP" { ProxyType::Http } else { ProxyType::Socks5 };
+                        hop.proxy_type = if t == "HTTP" {
+                            ProxyType::Http
+                        } else {
+                            ProxyType::Socks5
+                        };
                     }
                     if let Some(h) = values.get(&format!("PROXY_{}_HOST", i)) {
                         hop.host = h.clone();
@@ -888,7 +918,7 @@ impl ProxyVmWizardApp {
 
         // Build proxy config from editor state
         let mut config = ProxyConfig::new(role.clone(), self.config_editor.gateway_mode);
-        
+
         match self.config_editor.gateway_mode {
             GatewayMode::ProxyChain => {
                 for (i, hop) in self.config_editor.proxy_hops.iter().enumerate() {
@@ -896,12 +926,8 @@ impl ProxyVmWizardApp {
                         continue;
                     }
                     let port = hop.port.parse().unwrap_or(1080);
-                    let mut proxy_hop = ProxyHop::new(
-                        (i + 1) as u8,
-                        hop.proxy_type,
-                        hop.host.clone(),
-                        port,
-                    );
+                    let mut proxy_hop =
+                        ProxyHop::new((i + 1) as u8, hop.proxy_type, hop.host.clone(), port);
                     if !hop.username.is_empty() {
                         proxy_hop.username = Some(hop.username.clone());
                     }
@@ -916,8 +942,16 @@ impl ProxyVmWizardApp {
             }
             GatewayMode::WireGuard => {
                 config.wireguard = Some(WireGuardConfig {
-                    config_path: format!("/proxy/{}", self.config_editor.wireguard_config.config_filename),
-                    interface_name: if self.config_editor.wireguard_config.interface_name.is_empty() {
+                    config_path: format!(
+                        "/proxy/{}",
+                        self.config_editor.wireguard_config.config_filename
+                    ),
+                    interface_name: if self
+                        .config_editor
+                        .wireguard_config
+                        .interface_name
+                        .is_empty()
+                    {
                         "wg0".to_string()
                     } else {
                         self.config_editor.wireguard_config.interface_name.clone()
@@ -927,11 +961,17 @@ impl ProxyVmWizardApp {
             }
             GatewayMode::OpenVpn => {
                 config.openvpn = Some(OpenVpnConfig {
-                    config_path: format!("/proxy/{}", self.config_editor.openvpn_config.config_filename),
+                    config_path: format!(
+                        "/proxy/{}",
+                        self.config_editor.openvpn_config.config_filename
+                    ),
                     auth_file: if self.config_editor.openvpn_config.auth_filename.is_empty() {
                         None
                     } else {
-                        Some(format!("/proxy/{}", self.config_editor.openvpn_config.auth_filename))
+                        Some(format!(
+                            "/proxy/{}",
+                            self.config_editor.openvpn_config.auth_filename
+                        ))
                     },
                     route_all_traffic: self.config_editor.openvpn_config.route_all_traffic,
                 });
@@ -957,12 +997,21 @@ impl ProxyVmWizardApp {
             // Wait a moment then start
             std::thread::sleep(std::time::Duration::from_millis(500));
             if let Err(e) = self.libvirt.start_vm(&gw_name) {
-                self.log(StatusLevel::Warning, format!("Config saved but VM restart failed: {}", e));
+                self.log(
+                    StatusLevel::Warning,
+                    format!("Config saved but VM restart failed: {}", e),
+                );
             } else {
-                self.log(StatusLevel::Success, format!("Config saved and VM '{}' restarting", gw_name));
+                self.log(
+                    StatusLevel::Success,
+                    format!("Config saved and VM '{}' restarting", gw_name),
+                );
             }
         } else {
-            self.set_status(StatusLevel::Success, "Configuration saved. Restart VM to apply changes.");
+            self.set_status(
+                StatusLevel::Success,
+                "Configuration saved. Restart VM to apply changes.",
+            );
         }
 
         self.editing_role_config = None;
@@ -978,7 +1027,10 @@ impl ProxyVmWizardApp {
     pub fn cleanup_wizard_resources(&mut self) {
         // Clean up VM first
         if let Some(ref vm_name) = self.wizard.created_vm.take() {
-            self.log(StatusLevel::Warning, format!("Cleaning up VM '{}'...", vm_name));
+            self.log(
+                StatusLevel::Warning,
+                format!("Cleaning up VM '{}'...", vm_name),
+            );
             self.libvirt.destroy_vm(vm_name).ok();
             self.libvirt.undefine_vm(vm_name).ok();
         }
@@ -986,14 +1038,20 @@ impl ProxyVmWizardApp {
         // Clean up overlay disk
         if let Some(ref overlay_path) = self.wizard.created_overlay.take() {
             if overlay_path.exists() {
-                self.log(StatusLevel::Warning, format!("Cleaning up overlay disk '{}'...", overlay_path.display()));
+                self.log(
+                    StatusLevel::Warning,
+                    format!("Cleaning up overlay disk '{}'...", overlay_path.display()),
+                );
                 self.libvirt.delete_overlay_disk(overlay_path).ok();
             }
         }
 
         // Clean up network (only if we created it)
         if let Some(ref net_name) = self.wizard.created_network.take() {
-            self.log(StatusLevel::Warning, format!("Cleaning up network '{}'...", net_name));
+            self.log(
+                StatusLevel::Warning,
+                format!("Cleaning up network '{}'...", net_name),
+            );
             self.libvirt.destroy_network(net_name).ok();
         }
 
@@ -1003,8 +1061,12 @@ impl ProxyVmWizardApp {
                 // Only delete if directory is relatively empty (our files only)
                 if let Ok(entries) = std::fs::read_dir(role_dir) {
                     let count = entries.count();
-                    if count <= 3 {  // proxy.conf, apply-proxy.sh, role-meta.toml
-                        self.log(StatusLevel::Warning, format!("Cleaning up role directory '{}'...", role_dir.display()));
+                    if count <= 3 {
+                        // proxy.conf, apply-proxy.sh, role-meta.toml
+                        self.log(
+                            StatusLevel::Warning,
+                            format!("Cleaning up role directory '{}'...", role_dir.display()),
+                        );
                         std::fs::remove_dir_all(role_dir).ok();
                     }
                 }
@@ -1023,7 +1085,7 @@ impl ProxyVmWizardApp {
         self.reset_wizard();
         self.wizard.mode = WizardMode::Edit;
         self.wizard.role_name = role.to_string();
-        
+
         // Load existing role meta if available
         if let Ok(meta) = RoleMeta::load(&self.global_config.cfg.root, role) {
             self.wizard.selected_gw_template_id = meta.gw_template_id;
@@ -1055,7 +1117,8 @@ impl ProxyVmWizardApp {
 
                 // Must have gateway template selected
                 if self.wizard.selected_gw_template_id.is_none() {
-                    self.wizard.role_name_error = Some("Please select a gateway template".to_string());
+                    self.wizard.role_name_error =
+                        Some("Please select a gateway template".to_string());
                     return false;
                 }
 
@@ -1082,9 +1145,7 @@ impl ProxyVmWizardApp {
                     GatewayMode::WireGuard => {
                         !self.wizard.wireguard_config.config_filename.is_empty()
                     }
-                    GatewayMode::OpenVpn => {
-                        !self.wizard.openvpn_config.config_filename.is_empty()
-                    }
+                    GatewayMode::OpenVpn => !self.wizard.openvpn_config.config_filename.is_empty(),
                 }
             }
             _ => true,
@@ -1121,7 +1182,7 @@ impl ProxyVmWizardApp {
         self.wizard.execution_step = 0;
         self.wizard.execution_messages.clear();
         self.wizard.execution_error = None;
-        
+
         // Reset cleanup tracking
         self.wizard.created_network = None;
         self.wizard.created_overlay = None;
@@ -1134,7 +1195,9 @@ impl ProxyVmWizardApp {
         let gw_name = format!("{}-gw", role);
 
         // Step 1: Validate global config
-        self.wizard.execution_messages.push("Validating configuration...".to_string());
+        self.wizard
+            .execution_messages
+            .push("Validating configuration...".to_string());
         if let Err(e) = self.global_config.validate() {
             self.wizard.execution_error = Some(format!("Config validation failed: {}", e));
             self.wizard.is_executing = false;
@@ -1143,7 +1206,9 @@ impl ProxyVmWizardApp {
         self.wizard.execution_step = 1;
 
         // Step 2: Validate template
-        self.wizard.execution_messages.push("Checking template...".to_string());
+        self.wizard
+            .execution_messages
+            .push("Checking template...".to_string());
         let template_id = match self.wizard.selected_gw_template_id.as_ref() {
             Some(id) => id.clone(),
             None => {
@@ -1168,8 +1233,14 @@ impl ProxyVmWizardApp {
         self.wizard.execution_step = 2;
 
         // Step 3: Ensure LAN network exists
-        self.wizard.execution_messages.push(format!("Checking LAN network '{}'...", self.global_config.libvirt.lan_net));
-        if let Err(e) = self.libvirt.ensure_lan_net_exists(&self.global_config.libvirt.lan_net) {
+        self.wizard.execution_messages.push(format!(
+            "Checking LAN network '{}'...",
+            self.global_config.libvirt.lan_net
+        ));
+        if let Err(e) = self
+            .libvirt
+            .ensure_lan_net_exists(&self.global_config.libvirt.lan_net)
+        {
             self.wizard.execution_error = Some(e.to_string());
             self.wizard.is_executing = false;
             return;
@@ -1177,15 +1248,21 @@ impl ProxyVmWizardApp {
         self.wizard.execution_step = 3;
 
         // Step 4: Create role network
-        self.wizard.execution_messages.push(format!("Creating role network '{}'...", role_net));
+        self.wizard
+            .execution_messages
+            .push(format!("Creating role network '{}'...", role_net));
         match self.libvirt.ensure_role_network(&role) {
             Ok(created) => {
                 if created {
-                    self.wizard.execution_messages.push(format!("Created network '{}'", role_net));
+                    self.wizard
+                        .execution_messages
+                        .push(format!("Created network '{}'", role_net));
                     // Track for cleanup
                     self.wizard.created_network = Some(role_net.clone());
                 } else {
-                    self.wizard.execution_messages.push(format!("Network '{}' already exists", role_net));
+                    self.wizard
+                        .execution_messages
+                        .push(format!("Network '{}' already exists", role_net));
                 }
             }
             Err(e) => {
@@ -1198,8 +1275,10 @@ impl ProxyVmWizardApp {
         self.wizard.execution_step = 4;
 
         // Step 5: Copy VPN config files if needed and generate proxy config
-        self.wizard.execution_messages.push("Generating proxy configuration...".to_string());
-        
+        self.wizard
+            .execution_messages
+            .push("Generating proxy configuration...".to_string());
+
         // Create role directory first
         let role_dir_existed = role_dir.exists();
         if let Err(e) = std::fs::create_dir_all(&role_dir) {
@@ -1220,14 +1299,18 @@ impl ProxyVmWizardApp {
                 if let Some(filename) = wg_path.file_name() {
                     let dest = role_dir.join(filename);
                     if let Err(e) = std::fs::copy(wg_path, &dest) {
-                        self.wizard.execution_error = Some(format!("Failed to copy WireGuard config: {}", e));
+                        self.wizard.execution_error =
+                            Some(format!("Failed to copy WireGuard config: {}", e));
                         self.wizard.is_executing = false;
                         self.cleanup_wizard_resources();
                         return;
                     }
-                    self.wizard.execution_messages.push(format!("Copied WireGuard config to {}", dest.display()));
+                    self.wizard
+                        .execution_messages
+                        .push(format!("Copied WireGuard config to {}", dest.display()));
                     // Update to just the filename for the config
-                    self.wizard.wireguard_config.config_filename = filename.to_string_lossy().to_string();
+                    self.wizard.wireguard_config.config_filename =
+                        filename.to_string_lossy().to_string();
                 }
             }
         }
@@ -1239,13 +1322,17 @@ impl ProxyVmWizardApp {
                 if let Some(filename) = ovpn_path.file_name() {
                     let dest = role_dir.join(filename);
                     if let Err(e) = std::fs::copy(ovpn_path, &dest) {
-                        self.wizard.execution_error = Some(format!("Failed to copy OpenVPN config: {}", e));
+                        self.wizard.execution_error =
+                            Some(format!("Failed to copy OpenVPN config: {}", e));
                         self.wizard.is_executing = false;
                         self.cleanup_wizard_resources();
                         return;
                     }
-                    self.wizard.execution_messages.push(format!("Copied OpenVPN config to {}", dest.display()));
-                    self.wizard.openvpn_config.config_filename = filename.to_string_lossy().to_string();
+                    self.wizard
+                        .execution_messages
+                        .push(format!("Copied OpenVPN config to {}", dest.display()));
+                    self.wizard.openvpn_config.config_filename =
+                        filename.to_string_lossy().to_string();
                 }
             }
 
@@ -1256,10 +1343,16 @@ impl ProxyVmWizardApp {
                     if let Some(filename) = auth_path.file_name() {
                         let dest = role_dir.join(filename);
                         if let Err(e) = std::fs::copy(auth_path, &dest) {
-                            self.log(StatusLevel::Warning, format!("Failed to copy auth file: {}", e));
+                            self.log(
+                                StatusLevel::Warning,
+                                format!("Failed to copy auth file: {}", e),
+                            );
                         } else {
-                            self.wizard.execution_messages.push(format!("Copied auth file to {}", dest.display()));
-                            self.wizard.openvpn_config.auth_filename = filename.to_string_lossy().to_string();
+                            self.wizard
+                                .execution_messages
+                                .push(format!("Copied auth file to {}", dest.display()));
+                            self.wizard.openvpn_config.auth_filename =
+                                filename.to_string_lossy().to_string();
                         }
                     }
                 }
@@ -1276,9 +1369,16 @@ impl ProxyVmWizardApp {
         self.wizard.execution_step = 5;
 
         // Step 6: Create overlay disk
-        self.wizard.execution_messages.push("Creating overlay disk...".to_string());
-        let overlay_path = self.libvirt.gateway_overlay_path(&self.global_config.libvirt.images_dir, &role);
-        if let Err(e) = self.libvirt.create_overlay_disk(&template.path, &overlay_path) {
+        self.wizard
+            .execution_messages
+            .push("Creating overlay disk...".to_string());
+        let overlay_path = self
+            .libvirt
+            .gateway_overlay_path(&self.global_config.libvirt.images_dir, &role);
+        if let Err(e) = self
+            .libvirt
+            .create_overlay_disk(&template.path, &overlay_path)
+        {
             self.wizard.execution_error = Some(format!("Failed to create overlay: {}", e));
             self.wizard.is_executing = false;
             self.cleanup_wizard_resources();
@@ -1289,8 +1389,12 @@ impl ProxyVmWizardApp {
         self.wizard.execution_step = 6;
 
         // Step 7: Create gateway VM
-        self.wizard.execution_messages.push(format!("Creating gateway VM '{}'...", gw_name));
-        let ram_mb = template.default_ram_mb.max(self.global_config.defaults.gateway_ram_mb);
+        self.wizard
+            .execution_messages
+            .push(format!("Creating gateway VM '{}'...", gw_name));
+        let ram_mb = template
+            .default_ram_mb
+            .max(self.global_config.defaults.gateway_ram_mb);
         if let Err(e) = self.libvirt.create_gateway_vm(
             &gw_name,
             &overlay_path,
@@ -1310,14 +1414,19 @@ impl ProxyVmWizardApp {
         self.wizard.execution_step = 7;
 
         // Step 8: Save role metadata
-        self.wizard.execution_messages.push("Saving role metadata...".to_string());
+        self.wizard
+            .execution_messages
+            .push("Saving role metadata...".to_string());
         let mut meta = RoleMeta::new(role.clone());
         meta.gw_template_id = self.wizard.selected_gw_template_id.clone();
         meta.app_template_id = self.wizard.selected_app_template_id.clone();
         meta.disp_template_id = self.wizard.selected_disp_template_id.clone();
         meta.gateway_mode = self.wizard.gateway_mode;
         if let Err(e) = meta.save(&self.global_config.cfg.root) {
-            self.log(StatusLevel::Warning, format!("Failed to save role metadata: {}", e));
+            self.log(
+                StatusLevel::Warning,
+                format!("Failed to save role metadata: {}", e),
+            );
         }
         self.wizard.execution_step = 8;
 
@@ -1325,21 +1434,35 @@ impl ProxyVmWizardApp {
         if self.wizard.create_app_vm {
             if let Some(ref app_template_id) = self.wizard.selected_app_template_id {
                 if let Some(app_template) = self.template_registry.get(app_template_id).cloned() {
-                    self.wizard.execution_messages.push("Creating App VM...".to_string());
-                    
+                    self.wizard
+                        .execution_messages
+                        .push("Creating App VM...".to_string());
+
                     // Load and update meta for app VM numbering
                     let mut meta = RoleMeta::load(&self.global_config.cfg.root, &role)
                         .unwrap_or_else(|_| RoleMeta::new(role.clone()));
                     let app_num = meta.next_app_number();
                     let app_vm_name = meta.app_vm_name(app_num);
-                    
+
                     // Create app overlay
-                    let app_overlay = self.libvirt.app_overlay_path(&self.global_config.libvirt.images_dir, &role, app_num);
-                    if let Err(e) = self.libvirt.create_overlay_disk(&app_template.path, &app_overlay) {
-                        self.log(StatusLevel::Warning, format!("Failed to create App VM overlay: {}", e));
+                    let app_overlay = self.libvirt.app_overlay_path(
+                        &self.global_config.libvirt.images_dir,
+                        &role,
+                        app_num,
+                    );
+                    if let Err(e) = self
+                        .libvirt
+                        .create_overlay_disk(&app_template.path, &app_overlay)
+                    {
+                        self.log(
+                            StatusLevel::Warning,
+                            format!("Failed to create App VM overlay: {}", e),
+                        );
                     } else {
                         // Create app VM
-                        let app_ram = app_template.default_ram_mb.max(self.global_config.defaults.app_ram_mb);
+                        let app_ram = app_template
+                            .default_ram_mb
+                            .max(self.global_config.defaults.app_ram_mb);
                         if let Err(e) = self.libvirt.create_app_vm(
                             &app_vm_name,
                             &app_overlay,
@@ -1348,32 +1471,48 @@ impl ProxyVmWizardApp {
                             app_ram,
                             None,
                         ) {
-                            self.log(StatusLevel::Warning, format!("Failed to create App VM: {}", e));
+                            self.log(
+                                StatusLevel::Warning,
+                                format!("Failed to create App VM: {}", e),
+                            );
                             self.libvirt.delete_overlay_disk(&app_overlay).ok();
                         } else {
-                            self.wizard.execution_messages.push(format!("✓ Created App VM '{}'", app_vm_name));
+                            self.wizard
+                                .execution_messages
+                                .push(format!("✓ Created App VM '{}'", app_vm_name));
                             // Save updated meta
                             meta.save(&self.global_config.cfg.root).ok();
                         }
                     }
                 } else {
-                    self.log(StatusLevel::Warning, "App template not found, skipping App VM creation");
+                    self.log(
+                        StatusLevel::Warning,
+                        "App template not found, skipping App VM creation",
+                    );
                 }
             } else {
-                self.log(StatusLevel::Warning, "No App template selected, skipping App VM creation");
+                self.log(
+                    StatusLevel::Warning,
+                    "No App template selected, skipping App VM creation",
+                );
             }
         }
 
-        self.wizard.execution_messages.push("✓ Role created successfully!".to_string());
+        self.wizard
+            .execution_messages
+            .push("✓ Role created successfully!".to_string());
         self.wizard.is_executing = false;
-        
+
         // Clear cleanup tracking - everything succeeded!
         self.wizard.created_network = None;
         self.wizard.created_overlay = None;
         self.wizard.created_vm = None;
         self.wizard.created_role_dir = None;
-        
-        self.log(StatusLevel::Success, format!("Created role '{}' with gateway VM '{}'", role, gw_name));
+
+        self.log(
+            StatusLevel::Success,
+            format!("Created role '{}' with gateway VM '{}'", role, gw_name),
+        );
 
         // Refresh VM list
         self.refresh_vms();
@@ -1422,7 +1561,10 @@ impl ProxyVmWizardApp {
                     auth_file: if self.wizard.openvpn_config.auth_filename.is_empty() {
                         None
                     } else {
-                        Some(format!("/proxy/{}", self.wizard.openvpn_config.auth_filename))
+                        Some(format!(
+                            "/proxy/{}",
+                            self.wizard.openvpn_config.auth_filename
+                        ))
                     },
                     route_all_traffic: self.wizard.openvpn_config.route_all_traffic,
                 });
@@ -1450,7 +1592,8 @@ impl ProxyVmWizardApp {
         match self.libvirt.test_tcp_connection(&host, port) {
             Ok(_) => {
                 self.wizard.proxy_hops[index].test_status = Some(true);
-                self.wizard.proxy_hops[index].test_message = Some("Connection successful".to_string());
+                self.wizard.proxy_hops[index].test_message =
+                    Some("Connection successful".to_string());
             }
             Err(e) => {
                 self.wizard.proxy_hops[index].test_status = Some(false);
@@ -1471,7 +1614,10 @@ impl ProxyVmWizardApp {
         let template = match template_id.and_then(|id| self.template_registry.get(&id)) {
             Some(t) => t,
             None => {
-                self.set_status(StatusLevel::Error, "No app template configured for this role");
+                self.set_status(
+                    StatusLevel::Error,
+                    "No app template configured for this role",
+                );
                 return;
             }
         };
@@ -1483,14 +1629,24 @@ impl ProxyVmWizardApp {
         let vm_name = meta.app_vm_name(app_num);
 
         // Create overlay
-        let overlay_path = self.libvirt.app_overlay_path(&self.global_config.libvirt.images_dir, role, app_num);
-        if let Err(e) = self.libvirt.create_overlay_disk(&template.path, &overlay_path) {
-            self.set_status(StatusLevel::Error, format!("Failed to create overlay: {}", e));
+        let overlay_path =
+            self.libvirt
+                .app_overlay_path(&self.global_config.libvirt.images_dir, role, app_num);
+        if let Err(e) = self
+            .libvirt
+            .create_overlay_disk(&template.path, &overlay_path)
+        {
+            self.set_status(
+                StatusLevel::Error,
+                format!("Failed to create overlay: {}", e),
+            );
             return;
         }
 
         // Create VM
-        let ram_mb = template.default_ram_mb.max(self.global_config.defaults.app_ram_mb);
+        let ram_mb = template
+            .default_ram_mb
+            .max(self.global_config.defaults.app_ram_mb);
         if let Err(e) = self.libvirt.create_app_vm(
             &vm_name,
             &overlay_path,
@@ -1506,7 +1662,10 @@ impl ProxyVmWizardApp {
 
         // Save updated meta
         if let Err(e) = meta.save(&self.global_config.cfg.root) {
-            self.log(StatusLevel::Warning, format!("Failed to save role metadata: {}", e));
+            self.log(
+                StatusLevel::Warning,
+                format!("Failed to save role metadata: {}", e),
+            );
         }
 
         self.set_status(StatusLevel::Success, format!("Created app VM: {}", vm_name));
@@ -1514,60 +1673,82 @@ impl ProxyVmWizardApp {
     }
 
     pub fn delete_role(&mut self, role: &str) {
-        self.log(StatusLevel::Warning, format!("Deleting role '{}' and all associated resources...", role));
-        
+        self.log(
+            StatusLevel::Warning,
+            format!("Deleting role '{}' and all associated resources...", role),
+        );
+
         let role_net = format!("{}-inet", role);
         let gw_name = format!("{}-gw", role);
         let role_dir = self.global_config.role_dir(role);
-        
+
         // Get all VMs for this role
         let vms = self.role_vms.get(role).cloned().unwrap_or_default();
-        
+
         // Delete all VMs (gateway, app VMs, disposables)
         for vm in &vms {
-            self.log(StatusLevel::Warning, format!("Removing VM '{}'...", vm.name));
+            self.log(
+                StatusLevel::Warning,
+                format!("Removing VM '{}'...", vm.name),
+            );
             // Destroy if running
             self.libvirt.destroy_vm(&vm.name).ok();
             // Undefine
             self.libvirt.undefine_vm(&vm.name).ok();
         }
-        
+
         // Also try to delete the gateway VM by name pattern in case it wasn't in the list
         self.libvirt.destroy_vm(&gw_name).ok();
         self.libvirt.undefine_vm(&gw_name).ok();
-        
+
         // Delete overlay disks
-        let gw_overlay = self.libvirt.gateway_overlay_path(&self.global_config.libvirt.images_dir, role);
+        let gw_overlay = self
+            .libvirt
+            .gateway_overlay_path(&self.global_config.libvirt.images_dir, role);
         if gw_overlay.exists() {
-            self.log(StatusLevel::Warning, format!("Removing overlay disk '{}'...", gw_overlay.display()));
+            self.log(
+                StatusLevel::Warning,
+                format!("Removing overlay disk '{}'...", gw_overlay.display()),
+            );
             self.libvirt.delete_overlay_disk(&gw_overlay).ok();
         }
-        
+
         // Delete app VM overlays (try a few numbers)
         for i in 1..=20 {
-            let app_overlay = self.libvirt.app_overlay_path(&self.global_config.libvirt.images_dir, role, i);
+            let app_overlay =
+                self.libvirt
+                    .app_overlay_path(&self.global_config.libvirt.images_dir, role, i);
             if app_overlay.exists() {
                 self.libvirt.delete_overlay_disk(&app_overlay).ok();
             }
         }
-        
+
         // Delete disposable overlay directory
         let disp_dir = role_dir.join("disposable");
         if disp_dir.exists() {
             std::fs::remove_dir_all(&disp_dir).ok();
         }
-        
+
         // Destroy and undefine the role network
-        self.log(StatusLevel::Warning, format!("Removing network '{}'...", role_net));
+        self.log(
+            StatusLevel::Warning,
+            format!("Removing network '{}'...", role_net),
+        );
         self.libvirt.destroy_network(&role_net).ok();
-        
+
         // Delete role config directory
         if role_dir.exists() {
-            self.log(StatusLevel::Warning, format!("Removing config directory '{}'...", role_dir.display()));
+            self.log(
+                StatusLevel::Warning,
+                format!("Removing config directory '{}'...", role_dir.display()),
+            );
             std::fs::remove_dir_all(&role_dir).ok();
         }
-        
-        self.set_status(StatusLevel::Success, format!("Deleted role '{}' and all associated resources", role));
+
+        self.set_status(
+            StatusLevel::Success,
+            format!("Deleted role '{}' and all associated resources", role),
+        );
         self.refresh_vms();
     }
 
@@ -1583,7 +1764,10 @@ impl ProxyVmWizardApp {
         let template = match template_id.and_then(|id| self.template_registry.get(&id)) {
             Some(t) => t,
             None => {
-                self.set_status(StatusLevel::Error, "No disposable/app template configured for this role");
+                self.set_status(
+                    StatusLevel::Error,
+                    "No disposable/app template configured for this role",
+                );
                 return;
             }
         };
@@ -1591,16 +1775,26 @@ impl ProxyVmWizardApp {
         // Generate name and overlay path
         let timestamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
         let vm_name = format!("disp-{}-{}", role, timestamp);
-        let overlay_path = self.libvirt.disposable_overlay_path(&self.global_config.cfg.root, role);
+        let overlay_path = self
+            .libvirt
+            .disposable_overlay_path(&self.global_config.cfg.root, role);
 
         // Create overlay
-        if let Err(e) = self.libvirt.create_overlay_disk(&template.path, &overlay_path) {
-            self.set_status(StatusLevel::Error, format!("Failed to create overlay: {}", e));
+        if let Err(e) = self
+            .libvirt
+            .create_overlay_disk(&template.path, &overlay_path)
+        {
+            self.set_status(
+                StatusLevel::Error,
+                format!("Failed to create overlay: {}", e),
+            );
             return;
         }
 
         // Create transient VM
-        let ram_mb = template.default_ram_mb.max(self.global_config.defaults.disp_ram_mb);
+        let ram_mb = template
+            .default_ram_mb
+            .max(self.global_config.defaults.disp_ram_mb);
         if let Err(e) = self.libvirt.create_disposable_vm(
             &vm_name,
             &overlay_path,
@@ -1609,11 +1803,17 @@ impl ProxyVmWizardApp {
             ram_mb,
         ) {
             self.libvirt.delete_overlay_disk(&overlay_path).ok();
-            self.set_status(StatusLevel::Error, format!("Failed to create disposable VM: {}", e));
+            self.set_status(
+                StatusLevel::Error,
+                format!("Failed to create disposable VM: {}", e),
+            );
             return;
         }
 
-        self.set_status(StatusLevel::Success, format!("Launched disposable VM: {}", vm_name));
+        self.set_status(
+            StatusLevel::Success,
+            format!("Launched disposable VM: {}", vm_name),
+        );
         self.refresh_vms();
     }
 
@@ -1636,7 +1836,8 @@ impl ProxyVmWizardApp {
         let disp_ram = match self.settings_view.disp_ram.parse::<u32>() {
             Ok(v) if v >= 256 => v,
             _ => {
-                self.settings_view.error = Some("Disposable RAM must be at least 256 MB".to_string());
+                self.settings_view.error =
+                    Some("Disposable RAM must be at least 256 MB".to_string());
                 return;
             }
         };
@@ -1704,7 +1905,11 @@ impl eframe::App for ProxyVmWizardApp {
                 AsyncMessage::OperationError(e) => {
                     self.set_status(StatusLevel::Error, e);
                 }
-                AsyncMessage::ConnectionTestResult { index, success, message } => {
+                AsyncMessage::ConnectionTestResult {
+                    index,
+                    success,
+                    message,
+                } => {
                     if index < self.wizard.proxy_hops.len() {
                         self.wizard.proxy_hops[index].test_status = Some(success);
                         self.wizard.proxy_hops[index].test_message = Some(message);
@@ -1770,18 +1975,15 @@ impl eframe::App for ProxyVmWizardApp {
         }
 
         // Main content
-        egui::CentralPanel::default().show(ctx, |ui| {
-            match self.current_view {
-                View::Dashboard => DashboardView::show(self, ui),
-                View::Wizard => WizardView::show(self, ui),
-                View::Templates => TemplatesView::show(self, ui),
-                View::Settings => SettingsView::show(self, ui),
-                View::Logs => LogsView::show(self, ui),
-            }
+        egui::CentralPanel::default().show(ctx, |ui| match self.current_view {
+            View::Dashboard => DashboardView::show(self, ui),
+            View::Wizard => WizardView::show(self, ui),
+            View::Templates => TemplatesView::show(self, ui),
+            View::Settings => SettingsView::show(self, ui),
+            View::Logs => LogsView::show(self, ui),
         });
 
         // Request repaint for real-time updates
         ctx.request_repaint_after(std::time::Duration::from_secs(5));
     }
 }
-

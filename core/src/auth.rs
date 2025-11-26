@@ -107,8 +107,9 @@ impl AuthState {
 
     /// Derive an encryption key from the password
     pub fn derive_key(&self, password: &str) -> Result<[u8; 32]> {
-        let key_salt = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &self.key_salt)
-            .map_err(|e| Error::Auth(format!("Invalid key salt: {}", e)))?;
+        let key_salt =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &self.key_salt)
+                .map_err(|e| Error::Auth(format!("Invalid key salt: {}", e)))?;
 
         let mut key = [0u8; 32];
         Argon2::default()
@@ -170,7 +171,9 @@ impl EncryptionManager {
         }
 
         if &data[..ENCRYPTED_HEADER.len()] != ENCRYPTED_HEADER {
-            return Err(Error::Auth("Invalid encrypted data: wrong header".to_string()));
+            return Err(Error::Auth(
+                "Invalid encrypted data: wrong header".to_string(),
+            ));
         }
 
         let nonce_start = ENCRYPTED_HEADER.len();
@@ -182,9 +185,9 @@ impl EncryptionManager {
         let cipher = Aes256Gcm::new_from_slice(&self.key)
             .map_err(|e| Error::Auth(format!("Failed to create cipher: {}", e)))?;
 
-        cipher
-            .decrypt(nonce, ciphertext)
-            .map_err(|_| Error::Auth("Decryption failed: wrong password or corrupted data".to_string()))
+        cipher.decrypt(nonce, ciphertext).map_err(|_| {
+            Error::Auth("Decryption failed: wrong password or corrupted data".to_string())
+        })
     }
 
     /// Check if data is encrypted (has the encrypted header)
@@ -195,16 +198,19 @@ impl EncryptionManager {
     /// Encrypt a string and return base64
     pub fn encrypt_string(&self, text: &str) -> Result<String> {
         let encrypted = self.encrypt(text.as_bytes())?;
-        Ok(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, encrypted))
+        Ok(base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            encrypted,
+        ))
     }
 
     /// Decrypt base64 data to string
     pub fn decrypt_string(&self, encrypted_base64: &str) -> Result<String> {
-        let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, encrypted_base64)
-            .map_err(|e| Error::Auth(format!("Invalid base64: {}", e)))?;
+        let data =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, encrypted_base64)
+                .map_err(|e| Error::Auth(format!("Invalid base64: {}", e)))?;
         let decrypted = self.decrypt(&data)?;
-        String::from_utf8(decrypted)
-            .map_err(|e| Error::Auth(format!("Invalid UTF-8: {}", e)))
+        String::from_utf8(decrypted).map_err(|e| Error::Auth(format!("Invalid UTF-8: {}", e)))
     }
 
     /// Encrypt and write to file
@@ -220,7 +226,10 @@ impl EncryptionManager {
     /// Read and decrypt from file
     pub fn decrypt_from_file(&self, path: &Path) -> Result<Vec<u8>> {
         if !path.exists() {
-            return Err(Error::NotFound(format!("File not found: {}", path.display())));
+            return Err(Error::NotFound(format!(
+                "File not found: {}",
+                path.display()
+            )));
         }
         let data = fs::read(path)?;
         self.decrypt(&data)
@@ -234,8 +243,7 @@ impl EncryptionManager {
     /// Read and decrypt text from file
     pub fn decrypt_text_from_file(&self, path: &Path) -> Result<String> {
         let data = self.decrypt_from_file(path)?;
-        String::from_utf8(data)
-            .map_err(|e| Error::Auth(format!("Invalid UTF-8: {}", e)))
+        String::from_utf8(data).map_err(|e| Error::Auth(format!("Invalid UTF-8: {}", e)))
     }
 }
 
@@ -256,7 +264,7 @@ mod tests {
     fn test_auth_state_create_verify() {
         let password = "test_password_123";
         let auth = AuthState::create(password).unwrap();
-        
+
         assert!(auth.verify_password(password).unwrap());
         assert!(!auth.verify_password("wrong_password").unwrap());
     }
@@ -305,14 +313,13 @@ mod tests {
         let password = "correct_password";
         let wrong_password = "wrong_password";
         let auth = AuthState::create(password).unwrap();
-        
+
         let manager1 = EncryptionManager::from_password(password, &auth).unwrap();
         let manager2 = EncryptionManager::from_password(wrong_password, &auth).unwrap();
 
         let encrypted = manager1.encrypt(b"secret").unwrap();
-        
+
         // Decryption with wrong key should fail
         assert!(manager2.decrypt(&encrypted).is_err());
     }
 }
-

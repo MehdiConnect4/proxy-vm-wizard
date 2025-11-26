@@ -1,7 +1,7 @@
 //! VPN configuration file parsing for WireGuard and OpenVPN
 
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
 /// Parsed information from a WireGuard config
 #[derive(Debug, Clone, Default)]
@@ -15,7 +15,7 @@ pub struct WireGuardParsedConfig {
 pub struct WireGuardPeer {
     pub endpoint: Option<String>,
     pub allowed_ips: Option<String>,
-    pub name: Option<String>,  // Extracted from comments or endpoint
+    pub name: Option<String>, // Extracted from comments or endpoint
 }
 
 impl WireGuardParsedConfig {
@@ -33,7 +33,7 @@ impl WireGuardParsedConfig {
 
         for line in content.lines() {
             let line = line.trim();
-            
+
             // Track comments as potential peer names
             if line.starts_with('#') {
                 last_comment = line.trim_start_matches('#').trim().to_string();
@@ -145,7 +145,7 @@ impl OpenVpnParsedConfig {
 
         for line in content.lines() {
             let line = line.trim();
-            
+
             if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
                 continue;
             }
@@ -205,14 +205,15 @@ impl OpenVpnParsedConfig {
 /// List all WireGuard config files in a directory
 pub fn list_wireguard_configs(dir: &Path) -> Vec<(String, WireGuardParsedConfig)> {
     let mut configs = Vec::new();
-    
+
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension().map(|e| e == "conf").unwrap_or(false) {
                 if let Some(config) = WireGuardParsedConfig::parse_file(&path) {
                     if !config.peers.is_empty() {
-                        let filename = path.file_name()
+                        let filename = path
+                            .file_name()
                             .map(|f| f.to_string_lossy().to_string())
                             .unwrap_or_default();
                         configs.push((filename, config));
@@ -221,14 +222,14 @@ pub fn list_wireguard_configs(dir: &Path) -> Vec<(String, WireGuardParsedConfig)
             }
         }
     }
-    
+
     configs
 }
 
 /// List all OpenVPN config files in a directory
 pub fn list_openvpn_configs(dir: &Path) -> Vec<(String, OpenVpnParsedConfig)> {
     let mut configs = Vec::new();
-    
+
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -236,7 +237,8 @@ pub fn list_openvpn_configs(dir: &Path) -> Vec<(String, OpenVpnParsedConfig)> {
             if ext == Some("ovpn".to_string()) || ext == Some("conf".to_string()) {
                 if let Some(config) = OpenVpnParsedConfig::parse_file(&path) {
                     if !config.remotes.is_empty() {
-                        let filename = path.file_name()
+                        let filename = path
+                            .file_name()
                             .map(|f| f.to_string_lossy().to_string())
                             .unwrap_or_default();
                         configs.push((filename, config));
@@ -245,7 +247,7 @@ pub fn list_openvpn_configs(dir: &Path) -> Vec<(String, OpenVpnParsedConfig)> {
             }
         }
     }
-    
+
     configs
 }
 
@@ -271,7 +273,10 @@ AllowedIPs = 0.0.0.0/0
         assert_eq!(config.interface_address, Some("10.0.0.2/24".to_string()));
         assert_eq!(config.peers.len(), 1);
         assert_eq!(config.peers[0].name, Some("US Server".to_string()));
-        assert_eq!(config.peers[0].endpoint, Some("us.example.com:51820".to_string()));
+        assert_eq!(
+            config.peers[0].endpoint,
+            Some("us.example.com:51820".to_string())
+        );
     }
 
     #[test]
@@ -290,5 +295,3 @@ remote eu.example.com 1194 tcp
         assert_eq!(config.remotes[1].protocol, Some("tcp".to_string()));
     }
 }
-
-
