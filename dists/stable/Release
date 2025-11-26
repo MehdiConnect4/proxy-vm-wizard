@@ -1,0 +1,14 @@
+Origin: Proxy VM Wizard
+Label: Proxy VM Wizard Repository
+Suite: stable
+Codename: stable
+Architectures: amd64
+Components: main
+Description: APT repository for Proxy VM Wizard
+Date: Wed, 26 Nov 2025 13:32:50 +0000
+MD5Sum:
+ d63e7ad6de21c7cb005c43a7b6d3fc95                  binary-amd64/Packages.gz
+ 10d982ef6d8596a7ab79ec2bc86f7c52                  binary-amd64/Packages
+SHA256:
+ f69dd956c7e957f787b8c35986ea8914362f5b972cb169bf66e5a9d2f264aaf2                  binary-amd64/Packages.gz
+ 1129c38bd3823a4938a0f64e20d7893f6c4053f960439ee65bf4961d14489ddf                  binary-amd64/Packages

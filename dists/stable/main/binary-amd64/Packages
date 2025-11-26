@@ -1,0 +1,29 @@
+Package: proxy-vm-wizard
+Version: 0.2.0-1
+Architecture: amd64
+Maintainer: Proxy VM Wizard Team
+Installed-Size: 14321
+Depends: libc6 (>= 2.39), libvirt-clients, policykit-1, qemu-utils, virtinst
+Recommends: qemu-kvm, libvirt-daemon-system
+Filename: pool/main/proxy-vm-wizard_0.2.0-1_amd64.deb
+Size: 4145792
+MD5sum: e4935bcc6591423e039fe410a0651f3a
+SHA1: f1d28bb6cb7006123e858dae78c77bc629c4d41d
+SHA256: 39cd6f59ebdcde61349213452448da87c26ace0219bea0582dcdc11228b6b316
+Section: admin
+Priority: optional
+Homepage: https://github.com/proxyvmwizard/proxy-vm-wizard
+Description: GUI wizard for Proxy VM management using egui
+ Proxy VM Wizard is a local-only, secure Rust GUI application for creating
+ and managing proxy gateway VMs, app VMs, and disposable VMs using
+ libvirt/QEMU/KVM.
+ .
+ Features:
+ - Password-protected with AES-256-GCM encryption for all configuration data
+ - Create proxy/gateway VMs with SOCKS5/HTTP proxy chains
+ - Support for WireGuard and OpenVPN VPN configurations
+ - Manage app VMs isolated behind gateway VMs
+ - Launch disposable (ephemeral) VMs that auto-delete
+ - Template management for qcow2 base images
+ - No network calls, telemetry, or external services
+
