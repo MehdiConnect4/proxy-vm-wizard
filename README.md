@@ -58,7 +58,22 @@ sudo usermod -aG libvirt $USER
 # Log out and back in for changes to take effect
 ```
 
-### Option 1: AppImage (Easiest)
+### Option 1: APT Repository (Recommended for Debian/Ubuntu)
+
+Add the repository and install:
+
+```bash
+# Add repository
+echo "deb [trusted=yes] https://mehdiconnect4.github.io/proxy-vm-wizard stable main" | sudo tee /etc/apt/sources.list.d/proxy-vm-wizard.list
+
+# Update and install
+sudo apt update
+sudo apt install proxy-vm-wizard
+```
+
+**Updates will be automatic** with `sudo apt update && sudo apt upgrade`
+
+### Option 2: AppImage (Universal Linux)
 
 Download the latest AppImage from the [Releases](https://github.com/proxyvmwizard/proxy-vm-wizard/releases) page:
 
@@ -67,7 +82,7 @@ chmod +x proxy-vm-wizard-x86_64.AppImage
 ./proxy-vm-wizard-x86_64.AppImage
 ```
 
-### Option 2: Debian/Ubuntu (.deb)
+### Option 3: Debian/Ubuntu (.deb)
 
 ```bash
 # Download the .deb from Releases page
@@ -75,7 +90,7 @@ sudo dpkg -i proxy-vm-wizard_*.deb
 sudo apt-get install -f  # Install any missing dependencies
 ```
 
-### Option 3: Binary Tarball
+### Option 4: Binary Tarball
 
 ```bash
 # Download and extract
@@ -89,7 +104,7 @@ sudo ./install.sh
 ./proxy-vm-wizard
 ```
 
-### Option 4: Build from Source
+### Option 5: Build from Source
 
 ```bash
 # Install Rust
@@ -104,7 +119,7 @@ cargo build --release
 ./target/release/proxy-vm-wizard
 ```
 
-### Option 5: Flatpak
+### Option 6: Flatpak
 
 ```bash
 # Add Flathub if not already added
