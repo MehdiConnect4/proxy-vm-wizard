@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-11-26
+
+### Fixed
+- **Critical performance bug**: Template edit dialog was calling virsh commands 600+ times per second, freezing the UI
+- Now fetches VM data once on dialog open, then uses cached data for instant smooth scrolling
+
 ## [0.2.0] - 2025-01-15
 
 ### Added
