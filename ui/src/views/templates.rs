@@ -18,9 +18,9 @@ impl TemplatesView {
                 // First, discover existing qcow2 files in the images directory
                 app.templates_view.discovered_qcow2_files =
                     Self::discover_qcow2_files(&app.global_config.libvirt.images_dir);
-                // Don't fetch disk-to-VM mapping here - it's slow and blocks UI
-                // We'll fetch it lazily only when showing the selection dialog
-                app.templates_view.disk_to_vm_map.clear();
+                // Fetch disk-to-VM mapping ONCE when opening dialog (not every frame!)
+                app.templates_view.disk_to_vm_map =
+                    app.libvirt.get_disk_to_vm_map().unwrap_or_default();
                 app.templates_view.show_selection_dialog = true;
                 app.templates_view.selected_existing_file = None;
                 app.templates_view.edit_template_id = None;
@@ -183,9 +183,12 @@ impl TemplatesView {
                                         .map(|n| n.to_string_lossy().to_string())
                                         .unwrap_or_else(|| path.display().to_string());
 
-                                    // Get VMs associated with this image
-                                    let vms =
-                                        app.libvirt.get_vms_using_image(path).unwrap_or_default();
+                                    // Get VMs associated with this image from cache
+                                    // (Don't call virsh every frame - that's insanely slow!)
+                                    let vms = app.templates_view.disk_to_vm_map
+                                        .get(path)
+                                        .cloned()
+                                        .unwrap_or_default();
 
                                     let is_registered = registered_paths.contains(path);
                                     let is_selected =
@@ -496,8 +499,9 @@ impl TemplatesView {
                             // Discover existing qcow2 files for edit mode too
                             app.templates_view.discovered_qcow2_files =
                                 Self::discover_qcow2_files(&app.global_config.libvirt.images_dir);
-                            // Don't fetch disk-to-VM mapping here - it's slow and blocks UI
-                            app.templates_view.disk_to_vm_map.clear();
+                            // Fetch disk-to-VM mapping ONCE when opening dialog (not every frame!)
+                            app.templates_view.disk_to_vm_map =
+                                app.libvirt.get_disk_to_vm_map().unwrap_or_default();
                             app.templates_view.show_selection_dialog = true;
                             app.templates_view.selected_existing_file = Some(template.path.clone());
                             app.templates_view.edit_template_id = Some(template.id.clone());
