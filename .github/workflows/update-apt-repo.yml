@@ -1,0 +1,184 @@
+name: Update APT Repository
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  update-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Download release .deb
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get latest release info
+          RELEASE_INFO=$(gh api repos/${{ github.repository }}/releases/latest)
+          DEB_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name | endswith(".deb")) | .browser_download_url')
+          
+          # Download .deb
+          mkdir -p pool/main
+          cd pool/main
+          wget -O $(basename "$DEB_URL") "$DEB_URL"
+      
+      - name: Generate repository metadata
+        run: |
+          # Install required tools
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev
+          
+          # Create directory structure
+          mkdir -p dists/stable/main/binary-amd64
+          
+          # Generate Packages file
+          cd pool/main
+          dpkg-scanpackages . /dev/null | gzip -9c > ../../dists/stable/main/binary-amd64/Packages.gz
+          dpkg-scanpackages . /dev/null > ../../dists/stable/main/binary-amd64/Packages
+          cd ../..
+          
+          # Generate Release file
+          cat > dists/stable/Release << EOF
+          Origin: Proxy VM Wizard
+          Label: Proxy VM Wizard Repository
+          Suite: stable
+          Codename: stable
+          Architectures: amd64
+          Components: main
+          Description: APT repository for Proxy VM Wizard
+          Date: $(date -Ru)
+          EOF
+          
+          # Add file hashes to Release
+          cd dists/stable
+          echo "MD5Sum:" >> Release
+          find main -type f -exec md5sum {} \; | sed 's|main/| |' | awk '{printf " %s %16s %s\n", $1, $3, $2}' >> Release
+          echo "SHA256:" >> Release
+          find main -type f -exec sha256sum {} \; | sed 's|main/| |' | awk '{printf " %s %16s %s\n", $1, $3, $2}' >> Release
+      
+      - name: Create installation instructions
+        run: |
+          cat > index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Proxy VM Wizard APT Repository</title>
+              <style>
+                  body {
+                      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                      max-width: 800px;
+                      margin: 50px auto;
+                      padding: 20px;
+                      line-height: 1.6;
+                      background: #f5f5f5;
+                  }
+                  .container {
+                      background: white;
+                      padding: 30px;
+                      border-radius: 8px;
+                      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                  }
+                  h1 { color: #333; }
+                  h2 { color: #555; margin-top: 30px; }
+                  code {
+                      background: #f4f4f4;
+                      padding: 2px 6px;
+                      border-radius: 3px;
+                      font-family: "Courier New", monospace;
+                  }
+                  pre {
+                      background: #2d2d2d;
+                      color: #f8f8f8;
+                      padding: 15px;
+                      border-radius: 5px;
+                      overflow-x: auto;
+                  }
+                  pre code {
+                      background: transparent;
+                      padding: 0;
+                      color: #f8f8f8;
+                  }
+                  .warning {
+                      background: #fff3cd;
+                      border-left: 4px solid #ffc107;
+                      padding: 12px;
+                      margin: 20px 0;
+                  }
+                  .success {
+                      background: #d4edda;
+                      border-left: 4px solid #28a745;
+                      padding: 12px;
+                      margin: 20px 0;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>🔐 Proxy VM Wizard APT Repository</h1>
+                  <p>Official Debian/Ubuntu package repository for Proxy VM Wizard</p>
+                  
+                  <h2>📦 Installation</h2>
+                  
+                  <h3>Step 1: Add the repository</h3>
+                  <pre><code># Add repository
+echo "deb [trusted=yes] https://mehdiconnect4.github.io/proxy-vm-wizard stable main" | sudo tee /etc/apt/sources.list.d/proxy-vm-wizard.list
+
+# Update package list
+sudo apt update</code></pre>
+                  
+                  <h3>Step 2: Install Proxy VM Wizard</h3>
+                  <pre><code>sudo apt install proxy-vm-wizard</code></pre>
+                  
+                  <div class="success">
+                      <strong>✅ That's it!</strong> The app is now installed and will auto-update with <code>apt upgrade</code>
+                  </div>
+                  
+                  <h2>🔄 Updating</h2>
+                  <p>Updates will be automatically available through the normal apt process:</p>
+                  <pre><code>sudo apt update
+sudo apt upgrade</code></pre>
+                  
+                  <h2>🗑️ Uninstallation</h2>
+                  <pre><code># Remove the package
+sudo apt remove proxy-vm-wizard
+
+# Remove the repository (optional)
+sudo rm /etc/apt/sources.list.d/proxy-vm-wizard.list
+sudo apt update</code></pre>
+                  
+                  <div class="warning">
+                      <strong>⚠️ Note:</strong> This repository uses <code>trusted=yes</code> to avoid GPG signing complexity. 
+                      Only use this repository if you trust the source. For maximum security, consider verifying releases manually.
+                  </div>
+                  
+                  <h2>📚 More Information</h2>
+                  <ul>
+                      <li><a href="https://github.com/MehdiConnect4/proxy-vm-wizard">GitHub Repository</a></li>
+                      <li><a href="https://github.com/MehdiConnect4/proxy-vm-wizard/releases">Releases</a></li>
+                      <li><a href="https://github.com/MehdiConnect4/proxy-vm-wizard/issues">Report Issues</a></li>
+                  </ul>
+              </div>
+          </body>
+          </html>
+          EOF
+      
+      - name: Commit and push
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Update APT repository for release ${{ github.event.release.tag_name || 'manual' }}" || echo "No changes"
+          git push origin gh-pages
+
