@@ -41,6 +41,18 @@ Each gateway can use one of three modes:
 
 ## Getting Started
 
+### Step 0: First Launch - Set Up Password
+
+When you first launch Proxy VM Wizard, you'll be prompted to create a password. This password:
+- Must be at least 8 characters long
+- Encrypts all your configuration and template data using AES-256-GCM
+- Uses Argon2id for secure key derivation
+- Is required each time you launch the application
+
+**Important**: There is no password recovery mechanism. If you forget your password, you'll need to delete `~/.config/proxy-vm-wizard/` and start fresh.
+
+On subsequent launches, you'll be prompted to enter your password to decrypt your configuration.
+
 ### Step 1: Prepare Your System
 
 Make sure libvirt is running:
@@ -138,9 +150,12 @@ Add 1-8 proxy hops:
 
 ### Security
 
+- Choose a strong password for the application
 - Use different roles for different trust levels
 - Don't share templates between high and low security roles
 - Regularly update your base images
+- Your configuration is encrypted at rest with AES-256-GCM
+- Password is never stored, only a cryptographic hash
 
 ### Troubleshooting
 

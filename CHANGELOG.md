@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Password-based encryption** for all configuration and template data
+- **AES-256-GCM** encryption for sensitive data at rest
+- **Argon2id** key derivation for secure password hashing
+- Password setup screen on first launch
+- Login screen for subsequent launches
+- Automatic migration from plain text to encrypted storage
+- Encrypted file detection and handling
+
+### Security
+- All configuration files now encrypted by default
+- Secure key derivation using Argon2id with random salts
+- AES-256-GCM for authenticated encryption
+- Password minimum length enforcement (8 characters)
+- Secure memory handling for encryption keys
+- No plaintext storage of sensitive configuration data
+
 ## [0.1.0] - 2024-01-01
 
 ### Added

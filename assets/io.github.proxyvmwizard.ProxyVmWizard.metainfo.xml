@@ -13,6 +13,7 @@
     </p>
     <p>Features:</p>
     <ul>
+      <li>Password-protected with AES-256-GCM encryption for all configuration data</li>
       <li>Create proxy/gateway VMs with SOCKS5/HTTP proxy chains</li>
       <li>Support for WireGuard and OpenVPN VPN configurations</li>
       <li>Manage app VMs isolated behind gateway VMs</li>

@@ -6,12 +6,34 @@ use proxy_vm_core::{
     ProxyConfigBuilder, RoleKind, GatewayMode, ProxyHop, ProxyType,
     WireGuardConfig, OpenVpnConfig, VmInfo,
     validate_role_name, normalize_role_name, config::discover_roles,
+    AuthState, EncryptionManager,
 };
 use std::path::PathBuf;
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
 use crate::views::{View, DashboardView, WizardView, TemplatesView, SettingsView, LogsView};
+
+/// Authentication screen state
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum AuthScreen {
+    #[default]
+    None,
+    /// First launch - setup password
+    Setup,
+    /// Subsequent launches - login
+    Login,
+}
+
+/// Authentication view state
+#[derive(Default)]
+pub struct AuthViewState {
+    pub screen: AuthScreen,
+    pub password: String,
+    pub password_confirm: String,
+    pub error: Option<String>,
+    pub show_password: bool,
+}
 
 /// Message types for async operations (reserved for future background tasks)
 #[derive(Debug)]
@@ -26,6 +48,10 @@ pub enum AsyncMessage {
 
 /// Main application state
 pub struct ProxyVmWizardApp {
+    // Authentication
+    pub auth_view: AuthViewState,
+    pub encryption: Option<EncryptionManager>,
+
     // Configuration
     pub global_config: GlobalConfig,
     pub template_registry: TemplateRegistry,
@@ -190,9 +216,13 @@ pub struct TemplatesViewState {
     pub discovered_qcow2_files: Vec<std::path::PathBuf>,
     pub selected_existing_file: Option<std::path::PathBuf>,
     
+    // Map of disk paths to VM names that use them
+    pub disk_to_vm_map: HashMap<std::path::PathBuf, Vec<String>>,
+    
     // Delete confirmation
     pub pending_template_delete: Option<String>,  // template ID to delete
     pub pending_template_delete_path: Option<std::path::PathBuf>,  // path to delete
+    pub delete_image_file: bool,  // Whether to also delete the image file (default: true)
     
     // Form fields
     pub form_label: String,
@@ -242,69 +272,319 @@ impl ProxyVmWizardApp {
         style.spacing.button_padding = egui::vec2(12.0, 6.0);
         cc.egui_ctx.set_style(style);
 
-        // Load config
-        let global_config = GlobalConfig::load_or_default().unwrap_or_default();
-        let template_registry = TemplateRegistry::load_or_default().unwrap_or_default();
-
         // Create async channel
         let (async_tx, async_rx) = channel();
 
         // Initialize libvirt adapter
         let libvirt = LibvirtAdapter::new();
 
+        // Check if auth is set up
+        let auth_screen = if AuthState::is_setup() {
+            AuthScreen::Login
+        } else {
+            AuthScreen::Setup
+        };
+
+        // Create app with minimal state - actual config loading happens after authentication
+        Self {
+            auth_view: AuthViewState {
+                screen: auth_screen,
+                ..Default::default()
+            },
+            encryption: None,
+            global_config: GlobalConfig::default(),
+            template_registry: TemplateRegistry::default(),
+            libvirt,
+            current_view: View::Dashboard,
+            previous_view: None,
+            discovered_roles: Vec::new(),
+            role_vms: HashMap::new(),
+            last_refresh: None,
+            wizard: WizardState::default(),
+            templates_view: TemplatesViewState::default(),
+            settings_view: SettingsViewState::default(),
+            logs: Vec::new(),
+            max_logs: 500,
+            async_tx,
+            async_rx,
+            status_message: None,
+            prereq_error: None,
+            pending_role_delete: None,
+            editing_role_config: None,
+            config_editor: ConfigEditorState::default(),
+        }
+    }
+
+    /// Initialize the app after successful authentication
+    fn initialize_after_auth(&mut self) {
         // Check prerequisites
-        let prereq_error = match libvirt.check_prerequisites() {
-            Ok(_) => match libvirt.check_libvirt_access() {
+        self.prereq_error = match self.libvirt.check_prerequisites() {
+            Ok(_) => match self.libvirt.check_libvirt_access() {
                 Ok(_) => None,
                 Err(e) => Some(e.to_string()),
             },
             Err(e) => Some(e.to_string()),
         };
 
+        // Collect any warnings to log after loading
+        let mut warnings: Vec<String> = Vec::new();
+
+        // Load config (encrypted or create new)
+        if let Some(ref encryption) = self.encryption.clone() {
+            // Try to load encrypted config
+            match GlobalConfig::load_encrypted(encryption) {
+                Ok(config) => self.global_config = config,
+                Err(_) => {
+                    // Try plain config (might exist from before encryption)
+                    self.global_config = GlobalConfig::load_or_default().unwrap_or_default();
+                    // Save as encrypted
+                    if let Err(e) = self.global_config.save_encrypted(encryption) {
+                        warnings.push(format!("Failed to encrypt config: {}", e));
+                    }
+                }
+            }
+
+            // Try to load encrypted template registry
+            match TemplateRegistry::load_encrypted(encryption) {
+                Ok(registry) => self.template_registry = registry,
+                Err(_) => {
+                    // Try plain registry
+                    self.template_registry = TemplateRegistry::load_or_default().unwrap_or_default();
+                    // Save as encrypted
+                    if let Err(e) = self.template_registry.save_encrypted(encryption) {
+                        warnings.push(format!("Failed to encrypt templates: {}", e));
+                    }
+                }
+            }
+        } else {
+            // No encryption - load normally
+            self.global_config = GlobalConfig::load_or_default().unwrap_or_default();
+            self.template_registry = TemplateRegistry::load_or_default().unwrap_or_default();
+        }
+
+        // Log any warnings
+        for warning in warnings {
+            self.log(StatusLevel::Warning, warning);
+        }
+
         // Discover roles
-        let discovered_roles = discover_roles(&global_config.cfg.root).unwrap_or_default();
+        self.discovered_roles = discover_roles(&self.global_config.cfg.root).unwrap_or_default();
 
         // Initialize settings view state from config
-        let settings_view = SettingsViewState {
-            cfg_root: global_config.cfg.root.display().to_string(),
-            images_dir: global_config.libvirt.images_dir.display().to_string(),
-            lan_net: global_config.libvirt.lan_net.clone(),
-            gateway_ram: global_config.defaults.gateway_ram_mb.to_string(),
-            app_ram: global_config.defaults.app_ram_mb.to_string(),
-            disp_ram: global_config.defaults.disp_ram_mb.to_string(),
-            debian_variant: global_config.defaults.debian_os_variant.clone(),
-            fedora_variant: global_config.defaults.fedora_os_variant.clone(),
+        self.settings_view = SettingsViewState {
+            cfg_root: self.global_config.cfg.root.display().to_string(),
+            images_dir: self.global_config.libvirt.images_dir.display().to_string(),
+            lan_net: self.global_config.libvirt.lan_net.clone(),
+            gateway_ram: self.global_config.defaults.gateway_ram_mb.to_string(),
+            app_ram: self.global_config.defaults.app_ram_mb.to_string(),
+            disp_ram: self.global_config.defaults.disp_ram_mb.to_string(),
+            debian_variant: self.global_config.defaults.debian_os_variant.clone(),
+            fedora_variant: self.global_config.defaults.fedora_os_variant.clone(),
             error: None,
             saved: false,
         };
 
-        let mut app = Self {
-            global_config,
-            template_registry,
-            libvirt,
-            current_view: View::Dashboard,
-            previous_view: None,
-            discovered_roles,
-            role_vms: HashMap::new(),
-            last_refresh: None,
-            wizard: WizardState::default(),
-            templates_view: TemplatesViewState::default(),
-            settings_view,
-            logs: Vec::new(),
-            max_logs: 500,
-            async_tx,
-            async_rx,
-            status_message: None,
-            prereq_error,
-            pending_role_delete: None,
-            editing_role_config: None,
-            config_editor: ConfigEditorState::default(),
-        };
-
         // Initial refresh
-        app.refresh_vms();
+        self.refresh_vms();
+    }
 
-        app
+    /// Handle password setup
+    fn setup_password(&mut self) -> bool {
+        if self.auth_view.password.len() < 8 {
+            self.auth_view.error = Some("Password must be at least 8 characters".to_string());
+            return false;
+        }
+
+        if self.auth_view.password != self.auth_view.password_confirm {
+            self.auth_view.error = Some("Passwords do not match".to_string());
+            return false;
+        }
+
+        // Create auth state
+        match AuthState::create(&self.auth_view.password) {
+            Ok(auth_state) => {
+                // Save auth state
+                if let Err(e) = auth_state.save() {
+                    self.auth_view.error = Some(format!("Failed to save auth: {}", e));
+                    return false;
+                }
+
+                // Create encryption manager
+                match EncryptionManager::from_password(&self.auth_view.password, &auth_state) {
+                    Ok(encryption) => {
+                        self.encryption = Some(encryption);
+                        self.auth_view.screen = AuthScreen::None;
+                        self.auth_view.password.clear();
+                        self.auth_view.password_confirm.clear();
+                        self.initialize_after_auth();
+                        true
+                    }
+                    Err(e) => {
+                        self.auth_view.error = Some(format!("Failed to create encryption: {}", e));
+                        false
+                    }
+                }
+            }
+            Err(e) => {
+                self.auth_view.error = Some(format!("Failed to create auth: {}", e));
+                false
+            }
+        }
+    }
+
+    /// Handle login
+    fn login(&mut self) -> bool {
+        match AuthState::load() {
+            Ok(auth_state) => {
+                // Verify password
+                match auth_state.verify_password(&self.auth_view.password) {
+                    Ok(true) => {
+                        // Create encryption manager
+                        match EncryptionManager::from_password(&self.auth_view.password, &auth_state) {
+                            Ok(encryption) => {
+                                self.encryption = Some(encryption);
+                                self.auth_view.screen = AuthScreen::None;
+                                self.auth_view.password.clear();
+                                self.initialize_after_auth();
+                                true
+                            }
+                            Err(e) => {
+                                self.auth_view.error = Some(format!("Encryption error: {}", e));
+                                false
+                            }
+                        }
+                    }
+                    Ok(false) => {
+                        self.auth_view.error = Some("Incorrect password".to_string());
+                        false
+                    }
+                    Err(e) => {
+                        self.auth_view.error = Some(format!("Verification error: {}", e));
+                        false
+                    }
+                }
+            }
+            Err(e) => {
+                self.auth_view.error = Some(format!("Failed to load auth: {}", e));
+                false
+            }
+        }
+    }
+
+    /// Show the password setup screen
+    fn show_setup_screen(&mut self, ctx: &egui::Context) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(80.0);
+                
+                ui.heading("🔐 Proxy VM Wizard");
+                ui.add_space(10.0);
+                ui.label("Welcome! Please set up a password to secure your configuration.");
+                ui.add_space(5.0);
+                ui.label(egui::RichText::new("This password will encrypt all your settings and templates.")
+                    .small()
+                    .color(egui::Color32::from_rgb(150, 150, 150)));
+                
+                ui.add_space(30.0);
+                
+                egui::Frame::group(ui.style())
+                    .fill(egui::Color32::from_rgb(30, 35, 45))
+                    .rounding(8.0)
+                    .inner_margin(20.0)
+                    .show(ui, |ui| {
+                        ui.set_width(350.0);
+                        
+                        ui.label("Create Password:");
+                        ui.add_space(5.0);
+                        let password_edit = egui::TextEdit::singleline(&mut self.auth_view.password)
+                            .password(!self.auth_view.show_password)
+                            .hint_text("Enter password (min 8 characters)")
+                            .desired_width(300.0);
+                        ui.add(password_edit);
+                        
+                        ui.add_space(10.0);
+                        
+                        ui.label("Confirm Password:");
+                        ui.add_space(5.0);
+                        let confirm_edit = egui::TextEdit::singleline(&mut self.auth_view.password_confirm)
+                            .password(!self.auth_view.show_password)
+                            .hint_text("Confirm password")
+                            .desired_width(300.0);
+                        ui.add(confirm_edit);
+                        
+                        ui.add_space(10.0);
+                        ui.checkbox(&mut self.auth_view.show_password, "Show password");
+                        
+                        if let Some(ref error) = self.auth_view.error {
+                            ui.add_space(10.0);
+                            ui.colored_label(egui::Color32::from_rgb(220, 20, 60), error);
+                        }
+                        
+                        ui.add_space(20.0);
+                        
+                        ui.horizontal(|ui| {
+                            if ui.button("🔐 Create Password & Continue").clicked() {
+                                self.setup_password();
+                            }
+                        });
+                    });
+                
+                ui.add_space(20.0);
+                ui.label(egui::RichText::new("⚠ Remember this password! It cannot be recovered if lost.")
+                    .color(egui::Color32::from_rgb(255, 165, 0)));
+            });
+        });
+    }
+
+    /// Show the login screen
+    fn show_login_screen(&mut self, ctx: &egui::Context) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(100.0);
+                
+                ui.heading("🔐 Proxy VM Wizard");
+                ui.add_space(10.0);
+                ui.label("Enter your password to unlock the application.");
+                
+                ui.add_space(30.0);
+                
+                egui::Frame::group(ui.style())
+                    .fill(egui::Color32::from_rgb(30, 35, 45))
+                    .rounding(8.0)
+                    .inner_margin(20.0)
+                    .show(ui, |ui| {
+                        ui.set_width(350.0);
+                        
+                        ui.label("Password:");
+                        ui.add_space(5.0);
+                        
+                        let password_edit = egui::TextEdit::singleline(&mut self.auth_view.password)
+                            .password(!self.auth_view.show_password)
+                            .hint_text("Enter your password")
+                            .desired_width(300.0);
+                        let response = ui.add(password_edit);
+                        
+                        // Submit on Enter
+                        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                            self.login();
+                        }
+                        
+                        ui.add_space(10.0);
+                        ui.checkbox(&mut self.auth_view.show_password, "Show password");
+                        
+                        if let Some(ref error) = self.auth_view.error {
+                            ui.add_space(10.0);
+                            ui.colored_label(egui::Color32::from_rgb(220, 20, 60), error);
+                        }
+                        
+                        ui.add_space(20.0);
+                        
+                        if ui.button("🔓 Unlock").clicked() {
+                            self.login();
+                        }
+                    });
+            });
+        });
     }
 
     pub fn log(&mut self, level: StatusLevel, message: impl Into<String>) {
@@ -1371,8 +1651,14 @@ impl ProxyVmWizardApp {
         self.global_config.defaults.debian_os_variant = self.settings_view.debian_variant.clone();
         self.global_config.defaults.fedora_os_variant = self.settings_view.fedora_variant.clone();
 
-        // Save
-        match self.global_config.save() {
+        // Save (encrypted if encryption is available)
+        let save_result = if let Some(ref encryption) = self.encryption {
+            self.global_config.save_encrypted(encryption)
+        } else {
+            self.global_config.save()
+        };
+
+        match save_result {
             Ok(_) => {
                 self.settings_view.error = None;
                 self.settings_view.saved = true;
@@ -1383,10 +1669,32 @@ impl ProxyVmWizardApp {
             }
         }
     }
+
+    /// Save template registry (encrypted if encryption is available)
+    pub fn save_template_registry(&mut self) -> proxy_vm_core::Result<()> {
+        if let Some(ref encryption) = self.encryption {
+            self.template_registry.save_encrypted(encryption)
+        } else {
+            self.template_registry.save()
+        }
+    }
 }
 
 impl eframe::App for ProxyVmWizardApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Show authentication screen if needed
+        match self.auth_view.screen {
+            AuthScreen::Setup => {
+                self.show_setup_screen(ctx);
+                return;
+            }
+            AuthScreen::Login => {
+                self.show_login_screen(ctx);
+                return;
+            }
+            AuthScreen::None => {}
+        }
+
         // Handle async messages
         while let Ok(msg) = self.async_rx.try_recv() {
             match msg {

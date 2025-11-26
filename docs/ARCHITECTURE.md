@@ -11,6 +11,7 @@ proxy-vm-wizard/
 │       ├── lib.rs          # Library exports
 │       ├── model.rs        # Domain models (GatewayMode, ProxyHop, etc.)
 │       ├── config.rs       # Configuration management
+│       ├── auth.rs         # Authentication and encryption
 │       ├── libvirt.rs      # Libvirt/QEMU CLI integration
 │       ├── proxy_config.rs # proxy.conf generation
 │       ├── vpn_config.rs   # WireGuard/OpenVPN parsing
@@ -113,8 +114,9 @@ virsh net-*            qemu-img create        proxy.conf
 
 ```
 ~/.config/proxy-vm-wizard/
-├── config.toml         ← GlobalConfig
-└── templates.toml      ← TemplateRegistry
+├── auth.json           ← AuthState (password hash, no sensitive data)
+├── config.toml         ← GlobalConfig (AES-256-GCM encrypted)
+└── templates.toml      ← TemplateRegistry (AES-256-GCM encrypted)
 
 ~/VMS/VM-Proxy-configs/<role>/
 ├── role-meta.toml      ← RoleMeta
@@ -222,10 +224,46 @@ State is modified through methods that handle validation, side effects, and UI u
 
 ## Security Considerations
 
-1. **Input Validation**: Role names restricted to `[a-z0-9_-]+`
-2. **No Shell**: Direct command execution only
-3. **Minimal Privileges**: pkexec for specific operations
-4. **No Network**: No external connections except user-initiated tests
-5. **Local Storage**: All data in user's home directory
+1. **Encrypted Storage**: All configuration and templates encrypted with AES-256-GCM
+2. **Password Security**: 
+   - Argon2id for password hashing and key derivation
+   - Minimum 8 character password requirement
+   - Random salts for both password hashing and key derivation
+   - Separate salts for authentication and encryption
+3. **Input Validation**: Role names restricted to `[a-z0-9_-]+`
+4. **No Shell**: Direct command execution only
+5. **Minimal Privileges**: pkexec for specific operations
+6. **No Network**: No external connections except user-initiated tests
+7. **Local Storage**: All data in user's home directory
+8. **Memory Safety**: Encryption keys handled securely in memory
+
+### Encryption Details
+
+The application uses a two-layer approach:
+
+1. **Authentication Layer** (auth.json):
+   - Argon2id password hash for verification
+   - Separate salt for key derivation
+   - No sensitive data stored in this file
+
+2. **Encryption Layer** (config/templates):
+   - AES-256-GCM for authenticated encryption
+   - Unique random nonce for each encryption operation
+   - 256-bit keys derived from password using Argon2id
+   - Encrypted file format: `PVMW_ENC_V1` header + nonce + ciphertext
+
+### Authentication Flow
+
+```
+First Launch:
+  User creates password → Argon2id hash → Save auth.json
+                       ↓
+                    Derive encryption key → Encrypt config/templates
+
+Subsequent Launches:
+  User enters password → Verify against hash in auth.json
+                       ↓
+                    Derive encryption key → Decrypt config/templates
+```
 
 

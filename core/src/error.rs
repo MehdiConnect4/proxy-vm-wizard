@@ -61,11 +61,18 @@ pub enum Error {
         port: u16,
         reason: String,
     },
+
+    #[error("Authentication error: {0}")]
+    Auth(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
+    pub fn auth(msg: impl Into<String>) -> Self {
+        Error::Auth(msg.into())
+    }
+
     pub fn config(msg: impl Into<String>) -> Self {
         Error::Config(msg.into())
     }

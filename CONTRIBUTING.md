@@ -71,6 +71,7 @@ RUST_LOG=debug cargo run
 proxy-vm-wizard/
 ├── core/               # Core library (no GUI dependencies)
 │   └── src/
+│       ├── auth.rs     # Authentication and encryption
 │       ├── config.rs   # Configuration management
 │       ├── libvirt.rs  # Libvirt/QEMU integration
 │       ├── model.rs    # Domain models
@@ -120,8 +121,11 @@ proxy-vm-wizard/
 
 - Never invoke shell (use direct Command execution)
 - Validate all user input
-- Don't store sensitive data unencrypted
+- All configuration data must be encrypted (use `EncryptionManager`)
+- Handle encryption keys securely in memory
 - No network calls except user-initiated tests
+- Use Argon2id for password hashing and key derivation
+- Never store passwords in plain text
 
 ## Release Process
 

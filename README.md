@@ -21,6 +21,7 @@
 ## Features
 
 - 🔒 **Local-only** - No network calls, telemetry, or external services
+- 🔐 **Encrypted Storage** - Password-protected configuration and templates using AES-256-GCM
 - 🌐 **Proxy Chains** - Route traffic through 1-8 SOCKS5/HTTP proxy hops
 - 🛡️ **VPN Support** - WireGuard and OpenVPN gateway configurations
 - 📦 **Template Management** - Manage qcow2 base images for different VM types
@@ -180,8 +181,9 @@ From the **📊 Dashboard**:
 ## Configuration Files
 
 The app stores configuration in:
-- `~/.config/proxy-vm-wizard/config.toml` - Global settings
-- `~/.config/proxy-vm-wizard/templates.toml` - Template registry
+- `~/.config/proxy-vm-wizard/auth.json` - Password hash and encryption salt (no sensitive data)
+- `~/.config/proxy-vm-wizard/config.toml` - Global settings (encrypted)
+- `~/.config/proxy-vm-wizard/templates.toml` - Template registry (encrypted)
 - `~/VMS/VM-Proxy-configs/<role>/` - Per-role configuration (customizable)
 
 ## Documentation
@@ -224,11 +226,14 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 ## Security
 
+- **Password-protected** - All configuration and template data encrypted with AES-256-GCM
+- **Argon2id** - Industry-standard password hashing for key derivation
 - **No network calls** from the application (except proxy connectivity tests you initiate)
 - **No telemetry** or analytics
 - **Local-only** operation - all data stays on your machine
 - Commands use direct execution (no shell invocation)
 - Input validation on all user-provided data
+- Secure memory handling for encryption keys
 
 ## License
 

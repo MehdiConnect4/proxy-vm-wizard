@@ -19,8 +19,11 @@ impl TemplatesView {
                 app.templates_view.discovered_qcow2_files = Self::discover_qcow2_files(
                     &app.global_config.libvirt.images_dir
                 );
+                // Get disk-to-VM mapping to show which VMs use which images
+                app.templates_view.disk_to_vm_map = app.libvirt.get_disk_to_vm_map().unwrap_or_default();
                 app.templates_view.show_selection_dialog = true;
                 app.templates_view.selected_existing_file = None;
+                app.templates_view.edit_template_id = None;
             }
         });
 
@@ -129,13 +132,21 @@ impl TemplatesView {
     }
 
     fn show_selection_dialog(app: &mut ProxyVmWizardApp, ui: &mut egui::Ui) {
-        egui::Window::new("Add Template")
+        let is_edit_mode = app.templates_view.edit_template_id.is_some();
+        let dialog_title = if is_edit_mode { "Edit Template" } else { "Add Template" };
+        
+        egui::Window::new(dialog_title)
             .collapsible(false)
             .resizable(true)
             .default_width(500.0)
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
             .show(ui.ctx(), |ui| {
-                ui.label("How would you like to add a template?");
+                let prompt = if is_edit_mode {
+                    "Choose a disk image for this template:"
+                } else {
+                    "How would you like to add a template?"
+                };
+                ui.label(prompt);
                 ui.add_space(10.0);
                 
                 // Section 1: Existing files in libvirt images directory
@@ -157,36 +168,72 @@ impl TemplatesView {
                             .collect();
                         
                         egui::ScrollArea::vertical()
-                            .max_height(200.0)
+                            .max_height(250.0)
                             .show(ui, |ui| {
                                 for path in &app.templates_view.discovered_qcow2_files.clone() {
                                     let filename = path.file_name()
                                         .map(|n| n.to_string_lossy().to_string())
                                         .unwrap_or_else(|| path.display().to_string());
                                     
+                                    // Get VMs associated with this image
+                                    let vms = app.libvirt.get_vms_using_image(path).unwrap_or_default();
+                                    
                                     let is_registered = registered_paths.contains(path);
                                     let is_selected = app.templates_view.selected_existing_file.as_ref() == Some(path);
                                     
-                                    ui.horizontal(|ui| {
-                                        let label = if is_registered {
-                                            format!("📋 {} (already registered)", filename)
+                                    // Create a frame for each image with VM info
+                                    egui::Frame::none()
+                                        .fill(if is_selected {
+                                            egui::Color32::from_rgb(50, 60, 80)
                                         } else {
-                                            format!("💾 {}", filename)
-                                        };
-                                        
-                                        let response = ui.selectable_label(is_selected, label);
-                                        
-                                        if response.clicked() && !is_registered {
-                                            app.templates_view.selected_existing_file = Some(path.clone());
-                                        }
-                                        
-                                        if is_registered {
-                                            ui.colored_label(
-                                                egui::Color32::from_rgb(100, 180, 100),
-                                                "✓"
-                                            );
-                                        }
-                                    });
+                                            egui::Color32::TRANSPARENT
+                                        })
+                                        .rounding(4.0)
+                                        .inner_margin(4.0)
+                                        .show(ui, |ui| {
+                                            ui.vertical(|ui| {
+                                                // Show VM names first (if any)
+                                                if !vms.is_empty() {
+                                                    for vm_name in &vms {
+                                                        ui.horizontal(|ui| {
+                                                            ui.colored_label(
+                                                                egui::Color32::from_rgb(100, 180, 255),
+                                                                format!("🖥 {}", vm_name)
+                                                            );
+                                                        });
+                                                    }
+                                                } else {
+                                                    ui.colored_label(
+                                                        egui::Color32::from_rgb(150, 150, 150),
+                                                        "(no registered vm)"
+                                                    );
+                                                }
+                                                
+                                                // Show filename
+                                                ui.horizontal(|ui| {
+                                                    let label = if is_registered {
+                                                        format!("📋 {} (already registered)", filename)
+                                                    } else {
+                                                        format!("💾 {}", filename)
+                                                    };
+                                                    
+                                                    let response = ui.selectable_label(is_selected, label);
+                                                    
+                                                    if response.clicked() && !is_registered {
+                                                        app.templates_view.selected_existing_file = Some(path.clone());
+                                                    }
+                                                    
+                                                    if is_registered {
+                                                        ui.colored_label(
+                                                            egui::Color32::from_rgb(100, 180, 100),
+                                                            "✓"
+                                                        );
+                                                    }
+                                                });
+                                            });
+                                        });
+                                    
+                                    ui.add_space(2.0);
                                 }
                             });
                         
@@ -213,11 +260,9 @@ impl TemplatesView {
                                     let lower = app.templates_view.form_label.to_lowercase();
                                     app.templates_view.form_os_variant = if lower.contains("debian") {
                                         if lower.contains("13") { "debian13".to_string() }
-                                        else if lower.contains("12") { "debian12".to_string() }
                                         else { "debian12".to_string() }
                                     } else if lower.contains("fedora") {
                                         if lower.contains("41") { "fedora41".to_string() }
-                                        else if lower.contains("40") { "fedora40".to_string() }
                                         else { "fedora40".to_string() }
                                     } else if lower.contains("ubuntu") {
                                         "ubuntu24.04".to_string()
@@ -282,6 +327,9 @@ impl TemplatesView {
         let template_path = app.templates_view.pending_template_delete_path.clone();
         
         if let (Some(id), Some(path)) = (template_id, template_path) {
+            // Get VMs using this image for warning
+            let vms_using_image = app.libvirt.get_vms_using_image(&path).unwrap_or_default();
+            
             egui::Window::new("⚠ Confirm Delete")
                 .collapsible(false)
                 .resizable(false)
@@ -293,8 +341,36 @@ impl TemplatesView {
                     ui.group(|ui| {
                         ui.label(egui::RichText::new("This will permanently delete:").strong());
                         ui.add_space(5.0);
-                        ui.label("📋 Template from registry".to_string());
-                        ui.label(format!("💾 File: {}", path.display()));
+                        ui.label("📋 Template from registry");
+                        
+                        ui.add_space(5.0);
+                        ui.checkbox(
+                            &mut app.templates_view.delete_image_file,
+                            format!("🗑 Also delete image file: {}", path.file_name().unwrap_or_default().to_string_lossy())
+                        );
+                        
+                        if app.templates_view.delete_image_file {
+                            ui.label(egui::RichText::new(format!("   Path: {}", path.display())).small());
+                            
+                            // Show warning if VMs are using this image
+                            if !vms_using_image.is_empty() {
+                                ui.add_space(5.0);
+                                ui.colored_label(
+                                    egui::Color32::from_rgb(255, 165, 0),
+                                    format!("⚠ Warning: {} VM(s) use this image:", vms_using_image.len())
+                                );
+                                for vm_name in &vms_using_image {
+                                    ui.colored_label(
+                                        egui::Color32::from_rgb(255, 165, 0),
+                                        format!("   • {}", vm_name)
+                                    );
+                                }
+                                ui.colored_label(
+                                    egui::Color32::from_rgb(255, 165, 0),
+                                    "   These VMs may stop working!"
+                                );
+                            }
+                        }
                     });
                     
                     ui.add_space(10.0);
@@ -310,32 +386,44 @@ impl TemplatesView {
                             app.templates_view.pending_template_delete_path = None;
                         }
                         
-                        if ui.button(egui::RichText::new("🗑 Delete Template & File").color(egui::Color32::from_rgb(220, 20, 60))).clicked() {
+                        let button_text = if app.templates_view.delete_image_file {
+                            "🗑 Delete Template & File"
+                        } else {
+                            "🗑 Delete Template Only"
+                        };
+                        
+                        if ui.button(egui::RichText::new(button_text).color(egui::Color32::from_rgb(220, 20, 60))).clicked() {
                             // First remove from registry
                             if let Err(e) = app.template_registry.remove(&id) {
                                 app.set_status(StatusLevel::Error, format!("Failed to remove from registry: {}", e));
                             } else {
                                 // Save registry
-                                app.template_registry.save().ok();
+                                app.save_template_registry().ok();
                                 
-                                // Now delete the actual file using pkexec if needed
-                                let delete_result = if path.starts_with("/var/lib") {
-                                    app.libvirt.delete_overlay_disk(&path)
+                                if app.templates_view.delete_image_file {
+                                    // Delete the actual file using pkexec if needed
+                                    let delete_result = if path.starts_with("/var/lib") {
+                                        app.libvirt.delete_overlay_disk(&path)
+                                    } else {
+                                        std::fs::remove_file(&path).map_err(proxy_vm_core::Error::Io)
+                                    };
+                                    
+                                    match delete_result {
+                                        Ok(_) => {
+                                            app.set_status(StatusLevel::Success, format!(
+                                                "Template and file deleted: {}", path.display()
+                                            ));
+                                        }
+                                        Err(e) => {
+                                            app.set_status(StatusLevel::Warning, format!(
+                                                "Template removed from registry, but failed to delete file: {}", e
+                                            ));
+                                        }
+                                    }
                                 } else {
-                                    std::fs::remove_file(&path).map_err(proxy_vm_core::Error::Io)
-                                };
-                                
-                                match delete_result {
-                                    Ok(_) => {
-                                        app.set_status(StatusLevel::Success, format!(
-                                            "Template and file deleted: {}", path.display()
-                                        ));
-                                    }
-                                    Err(e) => {
-                                        app.set_status(StatusLevel::Warning, format!(
-                                            "Template removed from registry, but failed to delete file: {}", e
-                                        ));
-                                    }
+                                    app.set_status(StatusLevel::Success, format!(
+                                        "Template removed from registry (file kept): {}", path.display()
+                                    ));
                                 }
                             }
                             
@@ -369,11 +457,19 @@ impl TemplatesView {
                         if ui.small_button("🗑 Remove").clicked() {
                             app.templates_view.pending_template_delete = Some(template.id.clone());
                             app.templates_view.pending_template_delete_path = Some(template.path.clone());
+                            app.templates_view.delete_image_file = true;  // Default to checked
                         }
                         
                         if ui.small_button("✏ Edit").clicked() {
-                            app.templates_view.show_add_dialog = true;
+                            // Discover existing qcow2 files for edit mode too
+                            app.templates_view.discovered_qcow2_files = Self::discover_qcow2_files(
+                                &app.global_config.libvirt.images_dir
+                            );
+                            app.templates_view.disk_to_vm_map = app.libvirt.get_disk_to_vm_map().unwrap_or_default();
+                            app.templates_view.show_selection_dialog = true;
+                            app.templates_view.selected_existing_file = Some(template.path.clone());
                             app.templates_view.edit_template_id = Some(template.id.clone());
+                            // Pre-fill form fields for when user continues to the form
                             app.templates_view.form_label = template.label.clone();
                             app.templates_view.form_path = template.path.display().to_string();
                             app.templates_view.form_os_variant = template.os_variant.clone();
@@ -598,7 +694,7 @@ impl TemplatesView {
 
         match result {
             Ok(_) => {
-                if let Err(e) = app.template_registry.save() {
+                if let Err(e) = app.save_template_registry() {
                     app.set_status(StatusLevel::Error, format!("Failed to save registry: {}", e));
                 } else {
                     app.set_status(StatusLevel::Success, "Template saved successfully");

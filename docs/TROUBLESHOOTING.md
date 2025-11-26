@@ -2,6 +2,32 @@
 
 ## Common Issues
 
+### Forgot Password
+
+**Cause**: Password is lost and there's no recovery mechanism.
+
+**Solution**: 
+You'll need to delete the encrypted configuration and start fresh:
+```bash
+# Backup if needed (though you can't decrypt it)
+cp -r ~/.config/proxy-vm-wizard ~/.config/proxy-vm-wizard.backup
+
+# Remove config
+rm -rf ~/.config/proxy-vm-wizard/
+
+# Next launch will prompt for new password setup
+```
+
+**Note**: You'll need to re-register all templates and recreate roles. The VMs themselves are not encrypted and can be managed via virt-manager.
+
+### "Incorrect password" on login
+
+**Cause**: Wrong password entered.
+
+**Solution**: 
+1. Try again carefully - passwords are case-sensitive
+2. If you've truly forgotten it, see "Forgot Password" above
+
 ### "Prerequisite Error" on startup
 
 **Cause**: Missing libvirt commands or permissions.

@@ -1,6 +1,7 @@
 //! Libvirt/QEMU integration via CLI tools (virsh, virt-install, qemu-img)
 
 use crate::{Error, Result, VmInfo, VmState, VmKind, NetworkInfo, NetworkState};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::net::{TcpStream, SocketAddr, ToSocketAddrs};
@@ -530,6 +531,7 @@ impl LibvirtAdapter {
     }
 
     /// Build virt-install arguments for a gateway VM
+    #[allow(clippy::too_many_arguments)]
     pub fn build_gateway_virt_install_args(
         &self,
         vm_name: &str,
@@ -632,6 +634,7 @@ impl LibvirtAdapter {
     }
 
     /// Create a gateway VM
+    #[allow(clippy::too_many_arguments)]
     pub fn create_gateway_vm(
         &self,
         vm_name: &str,
@@ -804,6 +807,114 @@ impl LibvirtAdapter {
     }
 
     // ==================== Connectivity Testing ====================
+
+    /// Get the disk image path for a VM by parsing its XML definition
+    pub fn get_vm_disk_path(&self, vm_name: &str) -> Result<Option<PathBuf>> {
+        let output = self.run_cmd("virsh", &["dumpxml", vm_name])?;
+        if !output.success() {
+            return Ok(None);
+        }
+
+        // Parse the XML to find the disk source
+        // Look for: <source file='/path/to/disk.qcow2'/>
+        for line in output.stdout.lines() {
+            let line = line.trim();
+            if line.contains("<source file=") {
+                // Extract path from: <source file='/path/to/file.qcow2'/>
+                if let Some(start) = line.find("file='") {
+                    let path_start = start + 6;
+                    if let Some(end) = line[path_start..].find('\'') {
+                        let path_str = &line[path_start..path_start + end];
+                        return Ok(Some(PathBuf::from(path_str)));
+                    }
+                }
+                // Also try double quotes
+                if let Some(start) = line.find("file=\"") {
+                    let path_start = start + 6;
+                    if let Some(end) = line[path_start..].find('"') {
+                        let path_str = &line[path_start..path_start + end];
+                        return Ok(Some(PathBuf::from(path_str)));
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Get a map of disk paths to VM names for all VMs
+    pub fn get_disk_to_vm_map(&self) -> Result<HashMap<PathBuf, Vec<String>>> {
+        let mut map: HashMap<PathBuf, Vec<String>> = HashMap::new();
+        
+        // Get list of all VMs
+        let output = self.run_cmd("virsh", &["list", "--all", "--name"])?;
+        if !output.success() {
+            return Ok(map);
+        }
+
+        for line in output.stdout.lines() {
+            let vm_name = line.trim();
+            if vm_name.is_empty() {
+                continue;
+            }
+
+            if let Ok(Some(disk_path)) = self.get_vm_disk_path(vm_name) {
+                map.entry(disk_path)
+                    .or_default()
+                    .push(vm_name.to_string());
+            }
+        }
+
+        Ok(map)
+    }
+
+    /// Get all VMs that use a specific disk or its overlays (checks backing file chain)
+    pub fn get_vms_using_image(&self, image_path: &Path) -> Result<Vec<String>> {
+        let mut vms = Vec::new();
+        let disk_map = self.get_disk_to_vm_map()?;
+
+        // Direct match - VM uses this image directly
+        if let Some(vm_list) = disk_map.get(image_path) {
+            vms.extend(vm_list.clone());
+        }
+
+        // Check for overlays - VMs might use overlay disks backed by this image
+        // For each VM disk, check if its backing file is our image
+        for (disk_path, vm_names) in &disk_map {
+            if let Ok(Some(backing)) = self.get_backing_file(disk_path) {
+                if backing.as_path() == image_path {
+                    vms.extend(vm_names.clone());
+                }
+            }
+        }
+
+        // Remove duplicates
+        vms.sort();
+        vms.dedup();
+        Ok(vms)
+    }
+
+    /// Get the backing file for a qcow2 image
+    pub fn get_backing_file(&self, disk_path: &Path) -> Result<Option<PathBuf>> {
+        let path_str = path_to_str(disk_path)?;
+        let output = self.run_cmd("qemu-img", &["info", path_str])?;
+        if !output.success() {
+            return Ok(None);
+        }
+
+        // Look for: backing file: /path/to/backing.qcow2
+        for line in output.stdout.lines() {
+            let line = line.trim();
+            if line.starts_with("backing file:") {
+                let path_str = line.strip_prefix("backing file:").unwrap_or("").trim();
+                // Handle cases where there might be extra info after the path
+                let path_str = path_str.split_whitespace().next().unwrap_or(path_str);
+                if !path_str.is_empty() {
+                    return Ok(Some(PathBuf::from(path_str)));
+                }
+            }
+        }
+        Ok(None)
+    }
 
     /// Test TCP connectivity to a host:port
     pub fn test_tcp_connection(&self, host: &str, port: u16) -> Result<()> {

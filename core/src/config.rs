@@ -1,6 +1,6 @@
 //! Configuration management for global settings, templates, and roles
 
-use crate::{Error, Result, RoleKind, GatewayMode};
+use crate::{Error, Result, RoleKind, GatewayMode, EncryptionManager, auth};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -136,6 +136,34 @@ impl GlobalConfig {
             return Err(Error::validation("App RAM must be at least 256 MB"));
         }
         Ok(())
+    }
+
+    /// Load encrypted config from file
+    pub fn load_encrypted(encryption: &EncryptionManager) -> Result<Self> {
+        let path = Self::default_path();
+        if !path.exists() {
+            return Err(Error::NotFound("Config file not found".to_string()));
+        }
+        let content = encryption.decrypt_text_from_file(&path)?;
+        let config: Self = toml::from_str(&content)?;
+        Ok(config)
+    }
+
+    /// Save encrypted config to file
+    pub fn save_encrypted(&self, encryption: &EncryptionManager) -> Result<()> {
+        let path = Self::default_path();
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let content = toml::to_string_pretty(self)?;
+        encryption.encrypt_text_to_file(&content, &path)?;
+        Ok(())
+    }
+
+    /// Check if config file is encrypted
+    pub fn is_encrypted() -> Result<bool> {
+        let path = Self::default_path();
+        auth::is_file_encrypted(&path)
     }
 }
 
@@ -335,6 +363,34 @@ impl TemplateRegistry {
     /// Generate a unique ID for a new template
     pub fn generate_id(&self) -> String {
         uuid::Uuid::new_v4().to_string()
+    }
+
+    /// Load encrypted registry from file
+    pub fn load_encrypted(encryption: &EncryptionManager) -> Result<Self> {
+        let path = Self::default_path();
+        if !path.exists() {
+            return Err(Error::NotFound("Template registry not found".to_string()));
+        }
+        let content = encryption.decrypt_text_from_file(&path)?;
+        let registry: Self = toml::from_str(&content)?;
+        Ok(registry)
+    }
+
+    /// Save encrypted registry to file
+    pub fn save_encrypted(&self, encryption: &EncryptionManager) -> Result<()> {
+        let path = Self::default_path();
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let content = toml::to_string_pretty(self)?;
+        encryption.encrypt_text_to_file(&content, &path)?;
+        Ok(())
+    }
+
+    /// Check if registry file is encrypted
+    pub fn is_encrypted() -> Result<bool> {
+        let path = Self::default_path();
+        auth::is_file_encrypted(&path)
     }
 }
 
