@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Proxy VM Wizard
+Comment=Create and manage proxy gateway VMs with libvirt/QEMU
+Exec=proxy-vm-wizard
+Icon=io.github.proxyvmwizard.ProxyVmWizard
+Terminal=false
+Type=Application
+Categories=System;Virtualization;Network;
+Keywords=vm;virtual;machine;proxy;vpn;wireguard;openvpn;libvirt;qemu;kvm;
+StartupWMClass=proxy-vm-wizard
+
+

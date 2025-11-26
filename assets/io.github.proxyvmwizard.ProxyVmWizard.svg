@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2d3748"/>
+      <stop offset="100%" style="stop-color:#1a202c"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#68d391"/>
+      <stop offset="100%" style="stop-color:#38a169"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background rounded square -->
+  <rect x="8" y="8" width="112" height="112" rx="20" fill="url(#bg)"/>
+  
+  <!-- VM icon (stylized computer/server) -->
+  <rect x="28" y="35" width="72" height="45" rx="4" fill="#4a5568" stroke="#68d391" stroke-width="2"/>
+  <rect x="32" y="39" width="64" height="32" rx="2" fill="#2d3748"/>
+  
+  <!-- Screen content - network nodes -->
+  <circle cx="48" cy="55" r="6" fill="url(#accent)"/>
+  <circle cx="80" cy="55" r="6" fill="url(#accent)"/>
+  <circle cx="64" cy="55" r="4" fill="#68d391" opacity="0.7"/>
+  
+  <!-- Connection lines -->
+  <line x1="54" y1="55" x2="60" y2="55" stroke="#68d391" stroke-width="2"/>
+  <line x1="68" y1="55" x2="74" y2="55" stroke="#68d391" stroke-width="2"/>
+  
+  <!-- Stand -->
+  <rect x="54" y="80" width="20" height="4" fill="#4a5568"/>
+  <rect x="44" y="84" width="40" height="6" rx="2" fill="#4a5568"/>
+  
+  <!-- Shield overlay (security) -->
+  <path d="M64 95 L50 100 L50 108 Q50 118 64 122 Q78 118 78 108 L78 100 Z" 
+        fill="url(#accent)" opacity="0.9"/>
+  <path d="M60 108 L63 111 L70 104" 
+        stroke="#1a202c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
+
+

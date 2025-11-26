@@ -1,0 +1,40 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.AppImage
+*.deb
+*.rpm
+*.flatpak
+*.tar.gz
+
+# Test artifacts
+/test-output/
+
+# Local configuration (don't commit personal settings)
+.env
+.env.local
+
+# Flatpak build
+.flatpak-builder/
+flatpak/cargo-sources.json
+flatpak/repo/
+flatpak/*.flatpak
+
+# AppImage build
+AppDir/
+
+

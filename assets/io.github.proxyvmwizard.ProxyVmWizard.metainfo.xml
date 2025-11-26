@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.proxyvmwizard.ProxyVmWizard</id>
+  <name>Proxy VM Wizard</name>
+  <summary>Create and manage proxy gateway VMs</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  
+  <description>
+    <p>
+      Proxy VM Wizard is a local-only, secure Rust GUI application for creating and managing 
+      proxy gateway VMs, app VMs, and disposable VMs using libvirt/QEMU/KVM.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Create proxy/gateway VMs with SOCKS5/HTTP proxy chains</li>
+      <li>Support for WireGuard and OpenVPN VPN configurations</li>
+      <li>Manage app VMs isolated behind gateway VMs</li>
+      <li>Launch disposable (ephemeral) VMs that auto-delete</li>
+      <li>Template management for qcow2 base images</li>
+      <li>No network calls, telemetry, or external services</li>
+    </ul>
+  </description>
+  
+  <launchable type="desktop-id">io.github.proxyvmwizard.ProxyVmWizard.desktop</launchable>
+  
+  <screenshots>
+    <screenshot type="default">
+      <caption>Dashboard showing roles and VMs</caption>
+      <image>https://raw.githubusercontent.com/proxyvmwizard/proxy-vm-wizard/main/screenshots/dashboard.png</image>
+    </screenshot>
+  </screenshots>
+  
+  <url type="homepage">https://github.com/proxyvmwizard/proxy-vm-wizard</url>
+  <url type="bugtracker">https://github.com/proxyvmwizard/proxy-vm-wizard/issues</url>
+  
+  <provides>
+    <binary>proxy-vm-wizard</binary>
+  </provides>
+  
+  <requires>
+    <display_length compare="ge">800</display_length>
+  </requires>
+  
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </recommends>
+  
+  <content_rating type="oars-1.1" />
+  
+  <releases>
+    <release version="0.1.0" date="2024-01-01">
+      <description>
+        <p>Initial release with core functionality:</p>
+        <ul>
+          <li>Gateway VM creation with proxy chains</li>
+          <li>WireGuard and OpenVPN support</li>
+          <li>App VM and disposable VM management</li>
+          <li>Template management</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+  
+  <developer_name>Proxy VM Wizard Team</developer_name>
+</component>
+
+

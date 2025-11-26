@@ -1,0 +1,54 @@
+[package]
+name = "proxy-vm-wizard"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "GUI wizard for Proxy VM management using egui"
+readme = "../README.md"
+homepage = "https://github.com/proxyvmwizard/proxy-vm-wizard"
+repository = "https://github.com/proxyvmwizard/proxy-vm-wizard"
+keywords = ["virtualization", "libvirt", "qemu", "proxy", "vpn"]
+categories = ["virtualization", "gui"]
+
+[[bin]]
+name = "proxy-vm-wizard"
+path = "src/main.rs"
+
+[package.metadata.deb]
+maintainer = "Proxy VM Wizard Team"
+copyright = "2024, Proxy VM Wizard Team"
+license-file = ["../LICENSE", "0"]
+extended-description = """
+Proxy VM Wizard is a local-only, secure Rust GUI application for creating 
+and managing proxy gateway VMs, app VMs, and disposable VMs using libvirt/QEMU/KVM.
+
+Features:
+- Create proxy/gateway VMs with SOCKS5/HTTP proxy chains
+- Support for WireGuard and OpenVPN VPN configurations
+- Manage app VMs isolated behind gateway VMs
+- Launch disposable (ephemeral) VMs that auto-delete
+- Template management for qcow2 base images
+- No network calls, telemetry, or external services
+"""
+depends = "$auto, libvirt-clients, virtinst, qemu-utils, policykit-1"
+recommends = "qemu-kvm, libvirt-daemon-system"
+section = "admin"
+priority = "optional"
+assets = [
+    ["target/release/proxy-vm-wizard", "usr/bin/", "755"],
+    ["../assets/io.github.proxyvmwizard.ProxyVmWizard.desktop", "usr/share/applications/", "644"],
+    ["../assets/io.github.proxyvmwizard.ProxyVmWizard.svg", "usr/share/icons/hicolor/scalable/apps/", "644"],
+    ["../assets/io.github.proxyvmwizard.ProxyVmWizard.metainfo.xml", "usr/share/metainfo/", "644"],
+    ["../README.md", "usr/share/doc/proxy-vm-wizard/", "644"],
+]
+
+[dependencies]
+proxy-vm-core = { path = "../core" }
+eframe = { version = "0.29", default-features = false, features = ["default_fonts", "glow", "persistence"] }
+egui = "0.29"
+serde = { workspace = true }
+chrono = { workspace = true }
+rfd = "0.15"
+env_logger = "0.11"
+
