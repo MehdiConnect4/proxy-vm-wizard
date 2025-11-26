@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-01-15
+
 ### Added
 - **Password-based encryption** for all configuration and template data
 - **AES-256-GCM** encryption for sensitive data at rest
