@@ -24,6 +24,7 @@ Proxy VM Wizard is a local-only, secure Rust GUI application for creating
 and managing proxy gateway VMs, app VMs, and disposable VMs using libvirt/QEMU/KVM.
 
 Features:
+- Password-protected with AES-256-GCM encryption for all configuration data
 - Create proxy/gateway VMs with SOCKS5/HTTP proxy chains
 - Support for WireGuard and OpenVPN VPN configurations
 - Manage app VMs isolated behind gateway VMs
