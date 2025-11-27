@@ -49,7 +49,7 @@ package = "proxy-vm-wizard"
 license = "MIT"
 summary = "GUI wizard for managing proxy gateway VMs"
 assets = [
-    { source = "target/release/proxy-vm-wizard", dest = "/usr/bin/proxy-vm-wizard", mode = "755" },
+    { source = "../target/release/proxy-vm-wizard", dest = "/usr/bin/proxy-vm-wizard", mode = "755" },
     { source = "../assets/io.github.proxyvmwizard.ProxyVmWizard.desktop", dest = "/usr/share/applications/io.github.proxyvmwizard.ProxyVmWizard.desktop", mode = "644" },
     { source = "../assets/io.github.proxyvmwizard.ProxyVmWizard.svg", dest = "/usr/share/icons/hicolor/scalable/apps/io.github.proxyvmwizard.ProxyVmWizard.svg", mode = "644" },
     { source = "../assets/io.github.proxyvmwizard.ProxyVmWizard.metainfo.xml", dest = "/usr/share/metainfo/io.github.proxyvmwizard.ProxyVmWizard.metainfo.xml", mode = "644" },
