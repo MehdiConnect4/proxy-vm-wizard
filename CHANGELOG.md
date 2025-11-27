@@ -7,11 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2025-11-26
+
+### Security
+- Added restrictive file permissions (0600) to all sensitive files
+- proxy.conf now created with owner-only read/write permissions
+- auth.json and encrypted config files protected with 0600 permissions
+- Created comprehensive SECURITY.md documentation
+
+### Added
+- Full Fedora support with RPM packaging
+- RPM build target in Makefile
+- Fedora installation instructions in README
+- Flathub-ready Flatpak manifest improvements
+
+### Fixed
+- **Critical performance bug**: Template edit dialog cached data to prevent per-frame allocations
+- Removed .clone() calls in render loops (300+ allocations/second)
+- Cached registered_paths to stop rebuilding list 60x/second
+
 ## [0.2.6] - 2025-11-26
 
 ### Fixed
-- **Critical performance bug**: Template edit dialog was calling virsh commands 600+ times per second, freezing the UI
-- Now fetches VM data once on dialog open, then uses cached data for instant smooth scrolling
+- Template edit dialog performance improvements
 
 ## [0.2.0] - 2025-01-15
 

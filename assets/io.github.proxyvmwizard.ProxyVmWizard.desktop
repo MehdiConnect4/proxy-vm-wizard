@@ -5,7 +5,7 @@ Exec=proxy-vm-wizard
 Icon=io.github.proxyvmwizard.ProxyVmWizard
 Terminal=false
 Type=Application
-Categories=System;Utility;Network;
+Categories=System;
 Keywords=vm;virtual;machine;proxy;vpn;wireguard;openvpn;libvirt;qemu;kvm;
 StartupWMClass=proxy-vm-wizard
 

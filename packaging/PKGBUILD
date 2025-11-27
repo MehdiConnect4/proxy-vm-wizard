@@ -1,6 +1,6 @@
 # Maintainer: Proxy VM Wizard Team
 pkgname=proxy-vm-wizard
-pkgver=0.2.6
+pkgver=0.2.7
 pkgrel=1
 pkgdesc="GUI wizard for managing proxy gateway VMs with libvirt/QEMU"
 arch=('x86_64')

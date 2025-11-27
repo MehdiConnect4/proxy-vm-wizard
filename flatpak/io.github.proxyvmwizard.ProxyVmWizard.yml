@@ -13,15 +13,29 @@ finish-args:
   - --socket=wayland
   - --device=dri
   
-  # For libvirt/QEMU access
+  # Configuration storage (XDG_CONFIG_HOME)
+  - --persist=.config/proxy-vm-wizard
+  
+  # VM configuration storage (default: ~/VMS/VM-Proxy-configs)
+  - --filesystem=xdg-documents/VMS:create
+  
+  # For libvirt/QEMU system access (virtualization management)
+  # Required to create and manage VMs via virsh/virt-install
   - --socket=system-bus
+  - --talk-name=org.libvirt
+  
+  # PolicyKit authentication for privileged operations
   - --socket=session-bus
-  - --filesystem=home
-  - --filesystem=/var/lib/libvirt:rw
-  - --filesystem=/etc/libvirt:ro
   - --talk-name=org.freedesktop.PolicyKit1
   
-  # Network for proxy testing
+  # Libvirt image storage (system-wide VM disk images)
+  # Required to create qcow2 overlay disks for VMs
+  - --filesystem=/var/lib/libvirt/images:rw
+  
+  # Libvirt configuration (read-only for network definitions)
+  - --filesystem=/etc/libvirt:ro
+  
+  # Network for user-initiated proxy connection testing
   - --share=network
 
 build-options:
