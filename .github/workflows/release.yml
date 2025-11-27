@@ -122,8 +122,40 @@ jobs:
           name: proxy-vm-wizard-deb
           path: target/debian/*.deb
 
+  build-rpm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev \
+            libxcb-xfixes0-dev libxkbcommon-dev libssl-dev pkg-config rpm
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Build release
+        run: cargo build --release
+      
+      - name: Install cargo-generate-rpm
+        run: cargo install cargo-generate-rpm
+      
+      - name: Strip binary
+        run: strip target/release/proxy-vm-wizard
+      
+      - name: Generate RPM
+        run: cargo generate-rpm
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: proxy-vm-wizard-rpm
+          path: target/generate-rpm/*.rpm
+
   create-release:
-    needs: [build-linux, build-appimage, build-deb]
+    needs: [build-linux, build-appimage, build-deb, build-rpm]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
@@ -143,6 +175,7 @@ jobs:
             proxy-vm-wizard-linux-x86_64/proxy-vm-wizard-linux-x86_64.tar.gz
             proxy-vm-wizard-appimage/proxy-vm-wizard-x86_64.AppImage
             proxy-vm-wizard-deb/*.deb
+            proxy-vm-wizard-rpm/*.rpm
           body: |
             ## Installation
             
