@@ -90,16 +90,23 @@ sudo dpkg -i proxy-vm-wizard_*.deb
 sudo apt-get install -f  # Install any missing dependencies
 ```
 
-### Option 4: Fedora/RHEL (.rpm)
+### Option 4: Fedora/RHEL (Use Tarball)
 
 ```bash
-# Download the .rpm from Releases page
-sudo dnf install proxy-vm-wizard-*.rpm
-# Or with rpm
-sudo rpm -i proxy-vm-wizard-*.rpm
+# Download and extract tarball
+tar -xzf proxy-vm-wizard-linux-x86_64.tar.gz
+cd proxy-vm-wizard
+
+# Install system-wide
+sudo ./install.sh
+
+# Or run directly
+./proxy-vm-wizard
 ```
 
-### Option 5: Binary Tarball
+**Note**: Pre-built RPMs are not currently available. Fedora users can use the tarball or build from source.
+
+### Option 5: Binary Tarball (All Linux)
 
 ```bash
 # Download and extract
