@@ -75,7 +75,7 @@ sudo apt install proxy-vm-wizard
 
 ### Option 2: AppImage (Universal Linux)
 
-Download the latest AppImage from the [Releases](https://github.com/proxyvmwizard/proxy-vm-wizard/releases) page:
+Download the latest AppImage from the [Releases](https://github.com/MehdiConnect4/proxy-vm-wizard/releases) page:
 
 ```bash
 chmod +x proxy-vm-wizard-x86_64.AppImage
