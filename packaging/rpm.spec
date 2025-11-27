@@ -1,5 +1,5 @@
 Name:           proxy-vm-wizard
-Version:        0.2.7
+Version:        0.2.8
 Release:        1
 Summary:        GUI wizard for managing proxy gateway VMs with encryption
 
