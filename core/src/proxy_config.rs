@@ -285,6 +285,16 @@ exit 0
         let path = role_dir.join("proxy.conf");
         fs::create_dir_all(role_dir)?;
         fs::write(&path, content)?;
+
+        // SECURITY: Set restrictive permissions (owner read/write only)
+        // proxy.conf may contain passwords
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let perms = std::fs::Permissions::from_mode(0o600);
+            fs::set_permissions(&path, perms)?;
+        }
+
         Ok(())
     }
 

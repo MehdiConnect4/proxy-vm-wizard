@@ -49,6 +49,15 @@ tarball: release
 deb: release
 	cd ui && cargo deb
 
+# Build .rpm package for Fedora (requires rpmbuild)
+rpm: release
+	mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+	cp packaging/rpm.spec ~/rpmbuild/SPECS/proxy-vm-wizard.spec
+	tar -czf ~/rpmbuild/SOURCES/proxy-vm-wizard-$(VERSION).tar.gz \
+		--transform 's,^,proxy-vm-wizard-$(VERSION)/,' \
+		--exclude='target' --exclude='.git' .
+	rpmbuild -ba ~/rpmbuild/SPECS/proxy-vm-wizard.spec
+
 # Build AppImage (requires linuxdeploy)
 appimage: release
 	mkdir -p AppDir/usr/bin
@@ -82,7 +91,8 @@ help:
 	@echo "  lint       - Run clippy"
 	@echo "  format     - Format code with rustfmt"
 	@echo "  tarball    - Create distribution tarball"
-	@echo "  deb        - Build .deb package"
+	@echo "  deb        - Build .deb package (Debian/Ubuntu)"
+	@echo "  rpm        - Build .rpm package (Fedora/RHEL)"
 	@echo "  appimage   - Build AppImage"
 	@echo "  flatpak    - Build Flatpak"
 

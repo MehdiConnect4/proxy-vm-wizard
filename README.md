@@ -90,7 +90,16 @@ sudo dpkg -i proxy-vm-wizard_*.deb
 sudo apt-get install -f  # Install any missing dependencies
 ```
 
-### Option 4: Binary Tarball
+### Option 4: Fedora/RHEL (.rpm)
+
+```bash
+# Download the .rpm from Releases page
+sudo dnf install proxy-vm-wizard-*.rpm
+# Or with rpm
+sudo rpm -i proxy-vm-wizard-*.rpm
+```
+
+### Option 5: Binary Tarball
 
 ```bash
 # Download and extract
@@ -104,7 +113,7 @@ sudo ./install.sh
 ./proxy-vm-wizard
 ```
 
-### Option 5: Build from Source
+### Option 6: Build from Source
 
 ```bash
 # Install Rust
@@ -119,7 +128,7 @@ cargo build --release
 ./target/release/proxy-vm-wizard
 ```
 
-### Option 6: Flatpak
+### Option 7: Flatpak
 
 ```bash
 # Add Flathub if not already added
@@ -207,6 +216,7 @@ The app stores configuration in:
 - [Template Setup](docs/TEMPLATES.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Security](SECURITY.md)
 
 ## Building
 

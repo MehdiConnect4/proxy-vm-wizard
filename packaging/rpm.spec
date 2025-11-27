@@ -1,10 +1,10 @@
 Name:           proxy-vm-wizard
-Version:        0.1.0
+Version:        0.2.6
 Release:        1
-Summary:        GUI wizard for managing proxy gateway VMs
+Summary:        GUI wizard for managing proxy gateway VMs with encryption
 
 License:        MIT
-URL:            https://github.com/proxyvmwizard/proxy-vm-wizard
+URL:            https://github.com/MehdiConnect4/proxy-vm-wizard
 
 BuildRequires:  rust >= 1.70.0
 BuildRequires:  cargo
@@ -20,6 +20,7 @@ Requires:       polkit
 %description
 Proxy VM Wizard is a local-only, secure Rust GUI for creating
 and managing proxy gateway VMs using libvirt/QEMU/KVM.
+Features password-based AES-256-GCM encryption for all configuration data.
 
 %build
 cargo build --release

@@ -70,6 +70,15 @@ impl AuthState {
         }
         let content = serde_json::to_string_pretty(self)?;
         fs::write(&path, content)?;
+
+        // SECURITY: Set restrictive permissions (owner read/write only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let perms = std::fs::Permissions::from_mode(0o600);
+            fs::set_permissions(&path, perms)?;
+        }
+
         Ok(())
     }
 
@@ -220,6 +229,15 @@ impl EncryptionManager {
             fs::create_dir_all(parent)?;
         }
         fs::write(path, encrypted)?;
+
+        // SECURITY: Set restrictive permissions (owner read/write only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let perms = std::fs::Permissions::from_mode(0o600);
+            fs::set_permissions(path, perms)?;
+        }
+
         Ok(())
     }
 
