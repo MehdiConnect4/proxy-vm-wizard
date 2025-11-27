@@ -5,10 +5,10 @@ Codename: stable
 Architectures: amd64
 Components: main
 Description: APT repository for Proxy VM Wizard
-Date: Thu, 27 Nov 2025 01:41:29 +0000
+Date: Thu, 27 Nov 2025 02:40:44 +0000
 MD5Sum:
- 95be6101958a063541400bfa923a5a85                  binary-amd64/Packages.gz
- 0e3a13104dd0325ae309cca6fff46169                  binary-amd64/Packages
+ 752f70123e60d54cc57474cffe1c58c0                  binary-amd64/Packages.gz
+ d41d8cd98f00b204e9800998ecf8427e                  binary-amd64/Packages
 SHA256:
- 545375119237062e4e9a5be318ef12e4544d829d862e4092b70545f5f52dfe21                  binary-amd64/Packages.gz
- 71864353ec98071baf8c0a827f88e788a8575743d41916266ec20672f163e7a5                  binary-amd64/Packages
+ 114cb385e27d6a5a96eeec9daff1ad831c2bf97ec6575dcbcaa86ae62794407f                  binary-amd64/Packages.gz
+ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855                  binary-amd64/Packages
