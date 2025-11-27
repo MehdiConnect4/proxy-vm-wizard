@@ -15,9 +15,9 @@ echo "Updating APT repository to v${VERSION}"
 echo "════════════════════════════════════════════"
 echo ""
 
-# Check if release exists
+# Check if release exists (accepts 200 or 302 redirect)
 echo "1️⃣  Checking if GitHub release exists..."
-if ! curl -sI "https://github.com/MehdiConnect4/proxy-vm-wizard/releases/download/v${VERSION}/proxy-vm-wizard_${VERSION}-1_amd64.deb" | grep -q "HTTP/2 200"; then
+if ! curl -sI "https://github.com/MehdiConnect4/proxy-vm-wizard/releases/download/v${VERSION}/proxy-vm-wizard_${VERSION}-1_amd64.deb" | grep -qE "HTTP/2 (200|302)"; then
     echo "❌ Release v${VERSION} not found or .deb doesn't exist yet"
     echo "Wait for GitHub Actions to finish building"
     echo "Check: https://github.com/MehdiConnect4/proxy-vm-wizard/actions"
