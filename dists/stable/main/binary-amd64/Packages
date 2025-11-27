@@ -1,15 +1,15 @@
 Package: proxy-vm-wizard
-Version: 0.2.6-1
+Version: 0.2.7-1
 Architecture: amd64
 Maintainer: Proxy VM Wizard Team
-Installed-Size: 14317
+Installed-Size: 14380
 Depends: libc6 (>= 2.39), libvirt-clients, policykit-1, qemu-utils, virtinst
 Recommends: qemu-kvm, libvirt-daemon-system
-Filename: pool/main/proxy-vm-wizard_0.2.6-1_amd64.deb
-Size: 4147428
-MD5sum: 977ae0077bb4459a28f08324bae89d95
-SHA1: 866956ba800a9b01aabc9dcab04f658426f8281e
-SHA256: d226d11e8b2de85cf72ba0bcae082de6213dbecc8ad7796681bf364edea99994
+Filename: pool/main/proxy-vm-wizard_0.2.7-1_amd64.deb
+Size: 4160848
+MD5sum: 0dc4b93bdc99c8e48639e2efb4d31b4c
+SHA1: 2db7e93facfa7c062d8a75f1a05cb2511cdee574
+SHA256: c888779e9b94bed5886140ec38287b5b7f058f5fde85359bfb8987f38807fb36
 Section: admin
 Priority: optional
 Homepage: https://github.com/proxyvmwizard/proxy-vm-wizard
