@@ -92,11 +92,22 @@ sudo apt-get install -f  # Install any missing dependencies
 
 ### Option 4: Fedora/RHEL (.rpm)
 
+Download the .rpm from the [Releases page](https://github.com/MehdiConnect4/proxy-vm-wizard/releases/latest), then:
+
 ```bash
-# Download the .rpm from Releases page
-sudo dnf install proxy-vm-wizard-*.rpm
-# Or with rpm
-sudo rpm -i proxy-vm-wizard-*.rpm
+# Install with DNF (recommended - handles dependencies)
+sudo dnf install ./proxy-vm-wizard-*.rpm
+
+# Or with rpm directly
+sudo rpm -ivh ./proxy-vm-wizard-*.rpm
+```
+
+**Quick install (one-liner):**
+```bash
+# Get latest version and install
+VERSION=$(curl -s https://api.github.com/repos/MehdiConnect4/proxy-vm-wizard/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
+wget https://github.com/MehdiConnect4/proxy-vm-wizard/releases/download/${VERSION}/proxy-vm-wizard-*.rpm
+sudo dnf install ./proxy-vm-wizard-*.rpm
 ```
 
 ### Option 5: Binary Tarball (All Linux)
