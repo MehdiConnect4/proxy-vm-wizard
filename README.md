@@ -104,9 +104,8 @@ sudo rpm -ivh ./proxy-vm-wizard-*.rpm
 
 **Quick install (one-liner):**
 ```bash
-# Get latest version and install
-VERSION=$(curl -s https://api.github.com/repos/MehdiConnect4/proxy-vm-wizard/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
-wget https://github.com/MehdiConnect4/proxy-vm-wizard/releases/download/${VERSION}/proxy-vm-wizard-*.rpm
+# Download and install latest RPM
+wget $(curl -s https://api.github.com/repos/MehdiConnect4/proxy-vm-wizard/releases/latest | grep "browser_download_url.*rpm" | cut -d'"' -f4)
 sudo dnf install ./proxy-vm-wizard-*.rpm
 ```
 
