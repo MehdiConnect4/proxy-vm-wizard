@@ -45,7 +45,7 @@ assets = [
 ]
 
 [package.metadata.generate-rpm]
-name = "proxy-vm-wizard"
+package = "proxy-vm-wizard"
 license = "MIT"
 summary = "GUI wizard for managing proxy gateway VMs"
 assets = [

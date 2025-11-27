@@ -146,13 +146,15 @@ jobs:
         run: strip target/release/proxy-vm-wizard
       
       - name: Generate RPM
-        run: cargo generate-rpm
+        run: |
+          cd ui
+          cargo generate-rpm
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: proxy-vm-wizard-rpm
-          path: target/generate-rpm/*.rpm
+          path: ui/target/generate-rpm/*.rpm
 
   create-release:
     needs: [build-linux, build-appimage, build-deb, build-rpm]
